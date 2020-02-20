@@ -78,11 +78,11 @@ int main(int argc, char* argv[]){
     struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
     rebx_add_force(rebx, ephem_forces); 
     // Have to set speed of light in right units (set by G & initial conditions).  Here we use default units of AU/(yr/2pi)
-    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 2);
+    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 5);
 
     tmax            = 10000.;
 
-    jac0 = jac(r);
+//  jac0 = jac(r);
     reb_integrate(r, tmax);
 }
 
@@ -90,7 +90,7 @@ void heartbeat(struct reb_simulation* r){
     if(reb_output_check(r,tmax/10000.)){        // outputs to the screen
         reb_output_timing(r, tmax);
     }
-    const double j = jac(r);
-    fprintf(stderr, "jac const err: %e\n", fabs((j-jac0)/jac0));
+//  const double j = jac(r);
+//  fprintf(stderr, "jac const err: %e\n", fabs((j-jac0)/jac0));
 }
 
