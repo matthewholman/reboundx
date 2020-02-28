@@ -67,12 +67,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "spk.h"
+
 // these are the body codes for the user to specify
 enum {
         PLAN_BAR,                       // <0,0,0>
         PLAN_SOL,                       // Sun (in barycentric)
         PLAN_EAR,                       // Earth centre
         PLAN_EMB,                       // Earth-Moon barycentre
+        PLAN_LUN,                       // Moon centre
         PLAN_MER,                       // ... plus the rest
         PLAN_VEN,
         PLAN_MAR,
@@ -80,6 +83,7 @@ enum {
         PLAN_SAT,
         PLAN_URA,
         PLAN_NEP,
+        PLAN_PLU,	
 
         _NUM_TEST,
 };
@@ -122,11 +126,13 @@ struct _jpl_s {
 };
 
 // this stores the position+velocity
+/*
 struct mpos_s {
         double u[3];                    // position vector [AU]
         double v[3];                    // velocity vector [AU/day]
         double jde;                     // TDT time [days]
 };
+*/
 
 struct _jpl_s * jpl_init(void);
 int jpl_free(struct _jpl_s *jpl);
@@ -206,8 +212,8 @@ struct _jpl_s * jpl_init(void)
         int fd, p;
 
 //      snprintf(buf, sizeof(buf), "/home/blah/wherever/linux_p1550p2650.430");
-//      snprintf(buf, sizeof(buf), "linux_p1550p2650.430");
-        snprintf(buf, sizeof(buf), "/Users/aryaakmal/Documents/REBOUND/rebound/reboundx/examples/ephem_forces/linux_p1550p2650.430");
+        snprintf(buf, sizeof(buf), "linux_p1550p2650.430");
+	//snprintf(buf, sizeof(buf), "/Users/aryaakmal/Documents/REBOUND/rebound/reboundx/examples/ephem_forces/linux_p1550p2650.430");
 
         if ((fd = open(buf, O_RDONLY)) < 0)
                 return NULL;
@@ -333,6 +339,8 @@ static void _ura(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
         { jpl_work(&z[jpl->off[JPL_URA]], jpl->ncm[JPL_URA], jpl->ncf[JPL_URA], jpl->niv[JPL_URA], t, jpl->inc, pos->u, pos->v); }
 static void _nep(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
         { jpl_work(&z[jpl->off[JPL_NEP]], jpl->ncm[JPL_NEP], jpl->ncf[JPL_NEP], jpl->niv[JPL_NEP], t, jpl->inc, pos->u, pos->v); }
+static void _plu(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
+        { jpl_work(&z[jpl->off[JPL_PLU]], jpl->ncm[JPL_PLU], jpl->ncf[JPL_PLU], jpl->niv[JPL_PLU], t, jpl->inc, pos->u, pos->v); }
 
 static void _ear(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
 {
@@ -348,10 +356,26 @@ static void _ear(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
         vecpos_off(pos->v, lun.v, -1.0 / (1.0 + jpl->cem));
 }
 
+/* This was not fully tested */
+static void _lun(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
+{
+        struct mpos_s emb, lun;
+
+        jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, emb.u, emb.v);
+        jpl_work(&z[jpl->off[JPL_LUN]], jpl->ncm[JPL_LUN], jpl->ncf[JPL_LUN], jpl->niv[JPL_LUN], t, jpl->inc, lun.u, lun.v);
+
+        vecpos_set(pos->u, emb.u);
+        vecpos_off(pos->u, lun.u, jpl->cem / (1.0 + jpl->cem));
+
+        vecpos_set(pos->v, emb.v);
+        vecpos_off(pos->v, lun.v, jpl->cem / (1.0 + jpl->cem));
+}
+
 
 // function pointers are used to avoid a pointless switch statement
+// Added _lun here (2020 Feb 26)
 static void (* _help[_NUM_TEST])(struct _jpl_s *, double *, double, struct mpos_s *)
-        = { _bar, _sun, _ear, _emb, _mer, _ven, _mar, _jup, _sat, _ura, _nep};
+    = { _bar, _sun, _ear, _emb, _lun, _mer, _ven, _mar, _jup, _sat, _ura, _nep, _plu};
 
 int jpl_calc(struct _jpl_s *pl, struct mpos_s *now, double jde, int n, int m)
 {
@@ -386,97 +410,280 @@ int jpl_calc(struct _jpl_s *pl, struct mpos_s *now, double jde, int n, int m)
         return 0;
 }
 
-
-
-
-
-static void ephem(const int i, const double t, double* const m, double* const x, double* const y, double* const z){
+// Added gravitational constant G for the GR stuff (2020 Feb 26)
+// Added vx, vy, vz (2020 Feb 27)
+void ephem(const double G, const int i, const double t, double* const m,
+		  double* const x, double* const y, double* const z,
+		  double* const vx, double* const vy, double* const vz){
     const double n = 1.;
     const double mu = 1.e-3;
     const double m0 = 1.-mu;
-    const double m1 = mu; 
+    const double m1 = mu;
 
-    struct _jpl_s *pl;
+    static int initialized = 0;
+
+    static struct _jpl_s *pl;
+    static struct spk_s *spl;
     struct mpos_s now;
     double jde;
 
-    if ((pl = jpl_init()) == NULL) {
-            fprintf(stderr, "could not load DE430 file\n");
-            exit(EXIT_FAILURE);
+    //printf("G: %lf\n", G);
+    double M[11] =
+      {
+	0.295912208285591100E-03, // 0  sun  
+	0.491248045036476000E-10, // 1  mercury
+	0.724345233264412000E-09, // 2  venus
+	0.888769244512563400E-09, // 3  earth
+	0.109318945074237400E-10, // 4  moon
+	0.954954869555077000E-10, // 5  mars
+	0.282534584083387000E-06, // 6  jupiter
+	0.845970607324503000E-07, // 7  saturn
+	0.129202482578296000E-07, // 8  uranus
+	0.152435734788511000E-07, // 9  neptune
+	0.217844105197418000E-11, // 10 pluto
+      };
+
+    for(int k=0; k<11; k++){
+      M[k] /= G;
     }
 
-    jde = t + 2450123.7;  // t=0 is Julian day 2450123.7 
+    if (initialized == 0){
+      
+      if ((pl = jpl_init()) == NULL) {
+	fprintf(stderr, "could not load DE430 file, fool!\n");
+	exit(EXIT_FAILURE);
+      }
+
+      if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
+	fprintf(stderr, "could not load sb431-n16 file, fool!\n");
+	exit(EXIT_FAILURE);
+      }
+      printf("initialization complete\n");
+
+      initialized = 1;
+
+    }
+
+    //jde = t + 2450123.7;  // t=0 is Julian day 2450123.7
+    jde = t;  
 
     if (i==0){                           
-        *m = m0;
-//      const double mfac = -m1/(m0+m1);
-//      *x = mfac*cos(n*t);
-//      *y = mfac*sin(n*t);
-//      *z = 0.;
-        jpl_calc(pl, &now, jde, PLAN_SOL, PLAN_BAR); //sun in barycentric coords. 
-        vecpos_div(now.u, pl->cau);
-        *x = now.u[0];
-        *y = now.u[1];
-        *z = now.u[2];
+      *m = M[0];
+      jpl_calc(pl, &now, jde, PLAN_SOL, PLAN_BAR); //sun in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
     }
 
     if (i==1){
-        *m = m1;
-//      const double mfac = m0/(m0+m1);
-//      *x = mfac*cos(n*t);
-//      *y = mfac*sin(n*t);
-//      *z = 0.;
-        jpl_calc(pl, &now, jde, PLAN_JUP, PLAN_BAR); //jupiter in barycentric coords. 
-        vecpos_div(now.u, pl->cau);
-        *x = now.u[0];
-        *y = now.u[1];
-        *z = now.u[2];
+      *m = M[1];
+      jpl_calc(pl, &now, jde, PLAN_MER, PLAN_BAR); //mercury in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
     }
 
     if (i==2){
-        *m = m1;                         //mass values need to be passed. Use m1 for all bodies for now.
-//      const double mfac = m0/(m0+m1);
-//      *x = mfac*cos(n*t);
-//      *y = mfac*sin(n*t);
-//      *z = 0.;
-        jpl_calc(pl, &now, jde, PLAN_SAT, PLAN_BAR); //jupiter in barycentric coords. 
-        vecpos_div(now.u, pl->cau);
-        *x = now.u[0];
-        *y = now.u[1];
-        *z = now.u[2];
+      *m = M[2];
+      jpl_calc(pl, &now, jde, PLAN_VEN, PLAN_BAR); //venus in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
     }
 
     if (i==3){
-        *m = m1;                         //masses values need to be passed. Use m1 for all bodies for now.
-//      const double mfac = m0/(m0+m1);
-//      *x = mfac*cos(n*t);
-//      *y = mfac*sin(n*t);
-//      *z = 0.;
-        jpl_calc(pl, &now, jde, PLAN_URA, PLAN_BAR); //jupiter in barycentric coords. 
-        vecpos_div(now.u, pl->cau);
-        *x = now.u[0];
-        *y = now.u[1];
-        *z = now.u[2];
+      *m = M[3];
+      jpl_calc(pl, &now, jde, PLAN_EAR, PLAN_BAR); //earth in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
     }
 
     if (i==4){
-        *m = m1;                         //masses values need to be passed. Use m1 for all bodies for now.
-//      const double mfac = m0/(m0+m1);
-//      *x = mfac*cos(n*t);
-//      *y = mfac*sin(n*t);
-//      *z = 0.;
-        jpl_calc(pl, &now, jde, PLAN_NEP, PLAN_BAR); //jupiter in barycentric coords. 
-        vecpos_div(now.u, pl->cau);
-        *x = now.u[0];
-        *y = now.u[1];
-        *z = now.u[2];
+      *m = M[4];
+      jpl_calc(pl, &now, jde, PLAN_LUN, PLAN_BAR); //moon in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+    
+    if (i==5){
+      *m = M[5];
+      jpl_calc(pl, &now, jde, PLAN_MAR, PLAN_BAR); //mars in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
     }
 
-    jpl_free(pl);
+    if (i==6){
+      *m = M[6];
+      jpl_calc(pl, &now, jde, PLAN_JUP, PLAN_BAR); //jupiter in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+
+    if (i==7){
+      *m = M[7];
+      jpl_calc(pl, &now, jde, PLAN_SAT, PLAN_BAR); //saturn in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+    
+    if (i==8){
+      *m = M[8];
+      jpl_calc(pl, &now, jde, PLAN_URA, PLAN_BAR); //uranus in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+    
+    if (i==9){
+      *m = M[9];
+      jpl_calc(pl, &now, jde, PLAN_NEP, PLAN_BAR); //neptune in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+
+    if (i==10){
+      *m = M[10];
+      jpl_calc(pl, &now, jde, PLAN_PLU, PLAN_BAR); //neptune in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+      *x = now.u[0];
+      *y = now.u[1];
+      *z = now.u[2];
+      *vx = now.v[0];
+      *vy = now.v[1];
+      *vz = now.v[2];
+    }
+    
+}
+
+static void ast_ephem(const double G, const int i, const double t, double* const m, double* const x, double* const y, double* const z){
+    const double n = 1.;
+    const double mu = 1.e-3;
+    const double m0 = 1.-mu;
+    const double m1 = mu;
+
+    static int initialized = 0;
+
+    static struct _jpl_s *pl;
+    static struct spk_s *spl;
+    struct mpos_s pos;    
+    double jde;
+
+    if(i<0 || i>15){
+      fprintf(stderr, "asteroid out of range\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // 1 Ceres, 4 Vesta, 2 Pallas, 10 Hygiea, 31 Euphrosyne, 704 Interamnia,
+    // 511 Davida, 15 Eunomia, 3 Juno, 16 Psyche, 65 Cybele, 88 Thisbe, 
+    // 48 Doris, 52 Europa, 451 Patientia, 87 Sylvia
+    
+    double M[16] =
+      {
+	1.400476556172344e-13, // ceres
+	3.854750187808810e-14, // vesta
+	3.104448198938713e-14, // pallas
+	1.235800787294125e-14, // hygiea
+	6.343280473648602e-15, // euphrosyne
+	5.256168678493662e-15, // interamnia
+	5.198126979457498e-15, // davida
+	4.678307418350905e-15, // eunomia
+	3.617538317147937e-15, // juno
+	3.411586826193812e-15, // psyche
+	3.180659282652541e-15, // cybele
+	2.577114127311047e-15, // thisbe
+	2.531091726015068e-15, // doris
+	2.476788101255867e-15, // europa
+	2.295559390637462e-15, // patientia
+	2.199295173574073e-15, // sylvia
+      };
+
+    for(int k=0; k<16; k++){
+      M[k] /= G;
+    }
+
+    if (initialized == 0){
+      
+      if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
+	fprintf(stderr, "could not load sb431-n16 file, fool!\n");
+	exit(EXIT_FAILURE);
+      }
+      printf("asteroid initialization complete\n");
+
+      initialized = 1;
+
+    }
+
+    jde = t;
+
+    *m = M[i];
+    spk_calc(spl, i, jde, &pos);          
+    //vecpos_div(pos.u, spl->cau);
+    *x = pos.u[0];
+    *y = pos.u[1];
+    *z = pos.u[2];
+    
 }
 
 void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* const force, struct reb_particle* const particles, const int N){
     const int* const N_ephem = rebx_get_param(sim->extras, force->ap, "N_ephem");
+    const int* const N_ast = rebx_get_param(sim->extras, force->ap, "N_ast");
     if (N_ephem == NULL){
         fprintf(stderr, "REBOUNDx Error: Need to set N_ephem for ephemeris_forces\n");
         return;
@@ -484,19 +691,140 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     const double G = sim->G;
     const double t = sim->t;
-    double m, x, y, z;
+
+    double* c = rebx_get_param(sim->extras, force->ap, "c");
+    if (c == NULL){
+        reb_error(sim, "REBOUNDx Error: Need to set speed of light in gr effect.  See examples in documentation.\n");
+        return;
+    }
+    const double C2 = (*c)*(*c);
+
+    double m, x, y, z, vx, vy, vz;
+    double xs, ys, zs, vxs, vys, vzs;
+    double xe, ye, ze, vxe, vye, vze;    
+
+    ephem(G, 3, t, &m, &xe, &ye, &ze, &vxe, &vye, &vze); // Get position and mass of earth
+
+    // Calculate acceleration due to sun and planets
     for (int i=0; i<*N_ephem; i++){
-        ephem(i, t, &m, &x, &y, &z);
+        ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz); // Get position and mass of massive body i.
         for (int j=0; j<N; j++){
-            const double dx = particles[j].x - x;
+  	  // Compute position vector of test particle j relative to massive body i.
+            const double dx = particles[j].x - x; 
             const double dy = particles[j].y - y;
             const double dz = particles[j].z - z;
             const double _r = sqrt(dx*dx + dy*dy + dz*dz);
             const double prefac = G*m/(_r*_r*_r);
-            //fprintf(stderr, "%e, %e, %e, %e\n", m, x, y, z);
             particles[j].ax -= prefac*dx;
             particles[j].ay -= prefac*dy;
             particles[j].az -= prefac*dz;
         }
     }
+
+    // Get position, velocity, and mass of the sun wrt barycenter
+    // in order to translate heliocentric asteroids to barycenter.
+    ephem(G, 0, t, &m, &xs, &ys, &zs, &vxs, &vys, &vzs); 
+
+    // Now calculate acceleration due to massive asteroids
+    for (int i=0; i<*N_ast; i++){
+        ast_ephem(G, i, t, &m, &x, &y, &z); // Get position and mass of asteroid i.
+	x += xs;
+	y += ys;
+	z += zs;
+        for (int j=0; j<N; j++){
+  	  // Compute position vector of test particle j relative to massive body i.
+            const double dx = particles[j].x - x; 
+            const double dy = particles[j].y - y;
+            const double dz = particles[j].z - z;
+            const double _r = sqrt(dx*dx + dy*dy + dz*dz);
+            const double prefac = G*m/(_r*_r*_r);
+            particles[j].ax -= prefac*dx;
+            particles[j].ay -= prefac*dy;
+            particles[j].az -= prefac*dz;
+        }
+    }
+
+
+    // Here is the GR treatment
+    const double Msun = 1.0; // mass of sun in solar masses.
+    const double mu = G*Msun; // careful here.  We are assuming that the central body is at the barycenter.
+    const int max_iterations = 10; // careful of hard-coded parameter.
+    for (int i=0; i<N; i++){
+        struct reb_particle p = particles[i];
+        struct reb_vec3d vi;
+        vi.x = p.vx;
+        vi.y = p.vy;
+        vi.z = p.vz;
+        double vi2=vi.x*vi.x + vi.y*vi.y + vi.z*vi.z;
+        const double ri = sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
+        int q = 0;
+        double A = (0.5*vi2 + 3.*mu/ri)/C2;
+        struct reb_vec3d old_v;
+        for(q=0; q<max_iterations; q++){
+            old_v.x = vi.x;
+            old_v.y = vi.y;
+            old_v.z = vi.z;
+            vi.x = p.vx/(1.-A);
+            vi.y = p.vy/(1.-A);
+            vi.z = p.vz/(1.-A);
+            vi2 =vi.x*vi.x + vi.y*vi.y + vi.z*vi.z;
+            A = (0.5*vi2 + 3.*mu/ri)/C2;
+            const double dvx = vi.x - old_v.x;
+            const double dvy = vi.y - old_v.y;
+            const double dvz = vi.z - old_v.z;
+            if ((dvx*dvx + dvy*dvy + dvz*dvz)/vi2 < DBL_EPSILON*DBL_EPSILON){
+                break;
+            }
+        }
+        const int default_max_iterations = 10;
+        if(q==default_max_iterations){
+            reb_warning(sim, "REBOUNDx Warning: 10 iterations in gr.c failed to converge. This is typically because the perturbation is too strong for the current implementation.");
+        }
+  
+        const double B = (mu/ri - 1.5*vi2)*mu/(ri*ri*ri)/C2;
+        const double rdotrdot = p.x*p.vx + p.y*p.vy + p.z*p.vz;
+        
+        struct reb_vec3d vidot;
+        vidot.x = p.ax + B*p.x;
+        vidot.y = p.ay + B*p.y;
+        vidot.z = p.az + B*p.z;
+        
+        const double vdotvdot = vi.x*vidot.x + vi.y*vidot.y + vi.z*vidot.z;
+        const double D = (vdotvdot - 3.*mu/(ri*ri*ri)*rdotrdot)/C2;
+
+	//printf("gr: %le %le %le\n", B*(1.-A)*p.x - A*p.ax - D*vi.x, particles[i].ax, sqrt(C2));
+	
+        particles[i].ax += B*(1.-A)*p.x - A*p.ax - D*vi.x;
+        particles[i].ay += B*(1.-A)*p.y - A*p.ay - D*vi.y;
+        particles[i].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
+
+    }
+
+    /*
+    double dt = 1e-5;
+
+    double vxm, vym, vzm;
+    double vxp, vyp, vzp;
+    
+    ephem(G, 3, t+dt, &m, &x, &y, &z, &vxp, &vyp, &vzp); // Get position and velocity of earth.
+    ephem(G, 3, t-dt, &m, &x, &y, &z, &vxm, &vym, &vzm); // Get position and velocity of earth.
+    //printf("%le %le %le\n", vxp, vyp, vzp);
+
+    double axe = (vxp-vxm)/(2.0*dt);
+    double aye = (vyp-vym)/(2.0*dt);
+    double aze = (vzp-vzm)/(2.0*dt);
+
+    //printf("%lf %le %le %le\n", t, axe, aye, aze);
+    //printf("%lf %le %le %le\n", t, particles[0].ax, particles[0].ay, particles[0].az);
+
+    for (int i=0; i<N; i++){    
+
+      particles[i].ax -= axe;
+      particles[i].ay -= aye;
+      particles[i].az -= aze;
+
+    }
+    */
+    
+    
 }
