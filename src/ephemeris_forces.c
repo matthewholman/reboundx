@@ -125,15 +125,6 @@ struct _jpl_s {
         void *map;                      // memory mapped location
 };
 
-// this stores the position+velocity
-/*
-struct mpos_s {
-        double u[3];                    // position vector [AU]
-        double v[3];                    // velocity vector [AU/day]
-        double jde;                     // TDT time [days]
-};
-*/
-
 struct _jpl_s * jpl_init(void);
 int jpl_free(struct _jpl_s *jpl);
 void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double *u, double *v);
@@ -415,15 +406,10 @@ int jpl_calc(struct _jpl_s *pl, struct mpos_s *now, double jde, int n, int m)
 void ephem(const double G, const int i, const double t, double* const m,
 		  double* const x, double* const y, double* const z,
 		  double* const vx, double* const vy, double* const vz){
-    const double n = 1.;
-    const double mu = 1.e-3;
-    const double m0 = 1.-mu;
-    const double m1 = mu;
 
     static int initialized = 0;
 
     static struct _jpl_s *pl;
-    static struct spk_s *spl;
     struct mpos_s now;
     double jde;
 
@@ -454,10 +440,6 @@ void ephem(const double G, const int i, const double t, double* const m,
 	exit(EXIT_FAILURE);
       }
 
-      if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
-	fprintf(stderr, "could not load sb431-n16 file, fool!\n");
-	exit(EXIT_FAILURE);
-      }
       printf("initialization complete\n");
 
       initialized = 1;
@@ -628,14 +610,9 @@ void ephem(const double G, const int i, const double t, double* const m,
 }
 
 static void ast_ephem(const double G, const int i, const double t, double* const m, double* const x, double* const y, double* const z){
-    const double n = 1.;
-    const double mu = 1.e-3;
-    const double m0 = 1.-mu;
-    const double m1 = mu;
 
     static int initialized = 0;
 
-    static struct _jpl_s *pl;
     static struct spk_s *spl;
     struct mpos_s pos;    
     double jde;
@@ -758,7 +735,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
-    /*
     // Here is the GR treatment
     const double Msun = 1.0; // mass of sun in solar masses.
     const double mu = G*Msun; // careful here.  We are assuming that the central body is at the barycenter.
@@ -766,6 +742,14 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     for (int i=0; i<N; i++){
         struct reb_particle p = particles[i];
         struct reb_vec3d vi;
+
+	p.x += xe;
+	p.y += ye;
+	p.z += ze;	
+	p.vx += vxe;
+	p.vy += vye;
+	p.vz += vze;	
+	
         vi.x = p.vx;
         vi.y = p.vy;
         vi.z = p.vz;
@@ -805,15 +789,13 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         
         const double vdotvdot = vi.x*vidot.x + vi.y*vidot.y + vi.z*vidot.z;
         const double D = (vdotvdot - 3.*mu/(ri*ri*ri)*rdotrdot)/C2;
-
-	//printf("gr: %le %le %le\n", B*(1.-A)*p.x - A*p.ax - D*vi.x, particles[i].ax, sqrt(C2));
 	
         particles[i].ax += B*(1.-A)*p.x - A*p.ax - D*vi.x;
         particles[i].ay += B*(1.-A)*p.y - A*p.ay - D*vi.y;
         particles[i].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
 
     }
-    */
+
 
     double dt = 1e-5;
 

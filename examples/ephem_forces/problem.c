@@ -1,10 +1,22 @@
 /**
- * Highly eccentric orbits
+ * Ephemeris-quality integrations
  *
- * This example uses the IAS15 integrator to simulate
- * a very eccentric planetary orbit. The integrator
- * automatically adjusts the timestep so that the pericentre passages
- * resolved with high accuracy.
+ * This example uses the IAS15 integrator to integrate
+ * the orbits of test particles in the field of the sun, moon, planets
+ * and massive asteroids.  The positions and velocities of the
+ * massive bodies are taken from JPL ephemeris files.  Solar GR
+ * is included.
+ *
+ * To do:
+ * 
+ * 1. Modify the code so that the initial conditions of the particle, the time
+ *    span of the integration, and the time step come from a file.
+ * 2. Rearrange the ephem() function so that it returns all the positions in one shot.
+ * 3. Check position of the moon.
+ * 4. Put in earth J2 and J4
+ * 5. Separate ephem() and ast_ephem() from the rest of ephemeris_forces code.
+ * 6. Streamline ephem() function.
+ *
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,68 +27,24 @@
 
 double tmax;
 void heartbeat(struct reb_simulation* r);
-double jac0;
 
 void ephem(const double G, const int i, const double t, double* const m,
 		  double* const x, double* const y, double* const z,
 		  double* const vx, double* const vy, double* const vz);
 
 
-/*
-static void ephem(const int i, const double t, double* const m, double* const x, double* const y, double* const z){
-    const double n = 1.;
-    const double mu = 1.e-3;
-    const double m0 = 1.-mu;
-    const double m1 = mu; 
-    if (i==0){
-        *m = m0;
-        const double mfac = -m1/(m0+m1);
-        *x = mfac*cos(n*t);
-        *y = mfac*sin(n*t);
-        *z = 0.;
-    }
-
-    if (i==1){
-        *m = m1;
-        const double mfac = m0/(m0+m1);
-        *x = mfac*cos(n*t);
-        *y = mfac*sin(n*t);
-        *z = 0.;
-    }
-}
-
-double jac(struct reb_simulation* r){
-    const double n = 1;
-    const struct reb_particle* p = &r->particles[0];
-    const double v2 = p->vx*p->vx + p->vy*p->vy;
-    const double coriolis = 2*n*(p->x*p->vy-p->y*p->vx);
-    double m, x, y, z, vx, vy, vz;
-    ephem(0, r->t, &m, &x, &y, &z);
-    const double r1 = sqrt((x-p->x)*(x-p->x) + (y-p->y)*(y-p->y));
-    const double mu1 = r->G*m;
-    ephem(1, r->t, &m, &x, &y, &z);
-    const double r2 = sqrt((x-p->x)*(x-p->x) + (y-p->y)*(y-p->y));
-    const double mu2 = r->G*m;
-    const double j = 2.*(mu1/r1 + mu2/r2) + coriolis - v2;
-    return j;
-}
-
-*/
-
-
 int main(int argc, char* argv[]){
     struct reb_simulation* r = reb_create_simulation();
     // Setup constants
-    //r->G            = 1;        // Gravitational constant
     r->G = 0.295912208285591100E-03; // Gravitational constant (AU, solar masses, days)
-    r->dt           = -0.1;      // time step in days
-    r->integrator        = REB_INTEGRATOR_IAS15;
-    r->heartbeat        = heartbeat;
+    r->dt = -0.1;                    // time step in days
+    r->integrator = REB_INTEGRATOR_IAS15;
+    r->heartbeat = heartbeat;
     r->display_data = NULL;
     r->collision = REB_COLLISION_DIRECT;
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
-    r->usleep = 10000.;
+    r->usleep = 1000.;
 
     r->t = 2458849.5; // set simulation internal time to the time of test particle initial conditions.
 
