@@ -470,7 +470,7 @@ void ephem(const double G, const int i, const double t, double* const m,
     if (i==0){                           
       *m = M[0];
       jpl_calc(pl, &now, jde, PLAN_SOL, PLAN_BAR); //sun in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.u, pl->cau); 
       vecpos_div(now.v, (pl->cau/86400.));
       *x = now.u[0];
       *y = now.u[1];
@@ -609,6 +609,21 @@ void ephem(const double G, const int i, const double t, double* const m,
       *vy = now.v[1];
       *vz = now.v[2];
     }
+
+
+    if(0){ // making geocentric
+      jpl_calc(pl, &now, jde, PLAN_EAR, PLAN_BAR); //earth in barycentric coords. 
+      vecpos_div(now.u, pl->cau);
+      vecpos_div(now.v, (pl->cau/86400.));
+
+      *x -= now.u[0];
+      *y -= now.u[1];
+      *z -= now.u[2];
+      *vx -= now.v[0];
+      *vy -= now.v[1];
+      *vz -= now.v[2];
+
+    }
     
 }
 
@@ -674,7 +689,6 @@ static void ast_ephem(const double G, const int i, const double t, double* const
 
     *m = M[i];
     spk_calc(spl, i, jde, &pos);          
-    //vecpos_div(pos.u, spl->cau);
     *x = pos.u[0];
     *y = pos.u[1];
     *z = pos.u[2];
@@ -710,9 +724,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz); // Get position and mass of massive body i.
         for (int j=0; j<N; j++){
   	  // Compute position vector of test particle j relative to massive body i.
-            const double dx = particles[j].x - x; 
-            const double dy = particles[j].y - y;
-            const double dz = particles[j].z - z;
+            const double dx = xe + particles[j].x - x; 
+            const double dy = ye + particles[j].y - y;
+            const double dz = ze + particles[j].z - z;
             const double _r = sqrt(dx*dx + dy*dy + dz*dz);
             const double prefac = G*m/(_r*_r*_r);
             particles[j].ax -= prefac*dx;
@@ -733,9 +747,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	z += zs;
         for (int j=0; j<N; j++){
   	  // Compute position vector of test particle j relative to massive body i.
-            const double dx = particles[j].x - x; 
-            const double dy = particles[j].y - y;
-            const double dz = particles[j].z - z;
+            const double dx = xe + particles[j].x - x; 
+            const double dy = ye + particles[j].y - y;
+            const double dz = ze + particles[j].z - z;
             const double _r = sqrt(dx*dx + dy*dy + dz*dz);
             const double prefac = G*m/(_r*_r*_r);
             particles[j].ax -= prefac*dx;
@@ -744,7 +758,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
-
+    /*
     // Here is the GR treatment
     const double Msun = 1.0; // mass of sun in solar masses.
     const double mu = G*Msun; // careful here.  We are assuming that the central body is at the barycenter.
@@ -778,7 +792,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
         const int default_max_iterations = 10;
         if(q==default_max_iterations){
-            reb_warning(sim, "REBOUNDx Warning: 10 iterations in gr.c failed to converge. This is typically because the perturbation is too strong for the current implementation.");
+            reb_warning(sim, "REBOUNDx Warning: 10 iterations in ephemeris forces failed to converge. This is typically because the perturbation is too strong for the current implementation.");
         }
   
         const double B = (mu/ri - 1.5*vi2)*mu/(ri*ri*ri)/C2;
@@ -799,8 +813,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[i].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
 
     }
+    */
 
-    /*
     double dt = 1e-5;
 
     double vxm, vym, vzm;
@@ -822,9 +836,11 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
       particles[i].ax -= axe;
       particles[i].ay -= aye;
       particles[i].az -= aze;
+      //printf("%lf %le %le %le\n", t, particles[i].ax, particles[i].ay, particles[i].az);
 
     }
-    */
+    //printf("\n");
+
     
     
 }

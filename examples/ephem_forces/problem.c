@@ -69,14 +69,14 @@ int main(int argc, char* argv[]){
     // Setup constants
     //r->G            = 1;        // Gravitational constant
     r->G = 0.295912208285591100E-03; // Gravitational constant (AU, solar masses, days)
-    r->dt           = 0.1;      // time step in days
+    r->dt           = -0.1;      // time step in days
     r->integrator        = REB_INTEGRATOR_IAS15;
     r->heartbeat        = heartbeat;
     r->display_data = NULL;
     r->collision = REB_COLLISION_DIRECT;
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
-    r->usleep = 10.;
+    r->usleep = 10000.;
 
     r->t = 2458849.5; // set simulation internal time to the time of test particle initial conditions.
 
@@ -84,10 +84,7 @@ int main(int argc, char* argv[]){
 
     // Initial conditions for Ceres from JPL Horizons
     // Barycentric equatorial frame
-    //2458849.500000000 = A.D. 2020-Jan-01 00:00:00.0000 TDB 
-    //X = 1.003810191255037E+00 Y =-2.383247476572548E+00 Z =-1.329143955066118E+00
-    //VX= 9.193372298255753E-03 VY= 3.368462462504294E-03 VZ=-2.856144947515055E-04
-
+    
     /* Ceres
     tp.x = 1.003810191255037E+00;
     tp.y =-2.383247476572548E+00;
@@ -96,13 +93,6 @@ int main(int argc, char* argv[]){
     tp.vy = 3.368462462504294E-03;
     tp.vz = -2.856144947515055E-04;
     */
-
-    // Initial conditions for Holman from JPL Horizons
-    // Barycentric equatorial frame
-
-    //2458849.500000000 = A.D. 2020-Jan-01 00:00:00.0000 TDB 
-    //X = 3.338876057509365E+00 Y =-9.176517956664152E-01 Z =-5.038590450387491E-01
-    //VX= 2.805663678557796E-03 VY= 7.550408259144305E-03 VZ= 2.980028369986096E-03
 
     // Holman
     /*
@@ -122,28 +112,22 @@ int main(int argc, char* argv[]){
     tp.vy = -2.728117293034965E-03;
     tp.vz =-1.109706882773078E-03;
 
-    /*
-    double xe, ye, ze, vxe, vye, vze, m;
-
+    
     // Shift to geocenter
+    double xe, ye, ze, vxe, vye, vze, m;
     ephem(r->G, 3, r->t, &m, &xe, &ye, &ze, &vxe, &vye, &vze); // Get position and mass of the earth wrt barycenter
+    printf("%le %le %le %le %le %le\n", xe, ye, ze, vxe, vye, vze);
     tp.x -= xe;
     tp.y -= ye;
     tp.z -= ze;
     tp.vx -= vxe;
     tp.vy -= vye;
     tp.vz -= vze;
-    */
-
+    
     reb_add(r, tp);
 
 
     struct rebx_extras* rebx = rebx_attach(r);
-    // Add "gr" or "gr_full" here.  See documentation for details.
-    //struct rebx_force* gr = rebx_load_force(rebx, "gr");
-    //rebx_add_force(rebx, gr);
-    // Have to set speed of light in right units (set by G & initial conditions).  Here we use units of AU/day
-
 
     // Also add "ephemeris_forces" 
     struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
@@ -154,7 +138,7 @@ int main(int argc, char* argv[]){
     rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
     rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
 
-    tmax            = r->t + 10000.;
+    tmax            = r->t - 1000.;
 
     FILE* g = fopen("states.txt","w");
     //fprintf(g,"%lf\t",r->t);
@@ -164,7 +148,6 @@ int main(int argc, char* argv[]){
     reb_integrate(r, tmax);
 
 }
-
 
 void heartbeat(struct reb_simulation* r){
     if (reb_output_check(r, 0.1)){
@@ -178,9 +161,9 @@ void heartbeat(struct reb_simulation* r){
 	const int N = r->N;	
 	for (int i=0;i<N;i++){
 	  struct reb_particle p = r->particles[i];
-	  //fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",p.x,p.y,p.z,p.vx,p.vy,p.vz);
-	  fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",
-		  p.x-xe, p.y-ye, p.z-ze, p.vx-vxe, p.vy-vye, p.vz-vze);	  
+	  fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",p.x,p.y,p.z,p.vx,p.vy,p.vz);
+	  //fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",
+	  //p.x-xe, p.y-ye, p.z-ze, p.vx-vxe, p.vy-vye, p.vz-vze);	  
 	}
         fclose(g);
 	//reb_output_ascii(r, "states.txt");
