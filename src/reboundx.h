@@ -604,7 +604,12 @@ void rebx_error(struct rebx_extras* rebx, const char* const msg);
  * @param Pointer vx double returned x velocity of body i.
  * @param Pointer vy double returned y velocity of body i.
  * @param Pointer vz double returned z velocity of body i.
+ * @param Pointer ax double returned x acceleration of body i.
+ * @param Pointer ay double returned y acceleration of body i.
+ * @param Pointer az double returned z acceleration of body i.
  */
 void ephem(const double G, const int i, const double t, double* const m,
 	   double* const x, double* const y, double* const z,
-	   double* const vx, double* const vy, double* const vz);
+	   double* const vx, double* const vy, double* const vz,
+	   double* const ax, double* const ay, double* const az);
+

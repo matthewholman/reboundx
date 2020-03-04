@@ -47,6 +47,7 @@ enum {
 struct mpos_s {
 	double u[3];
 	double v[3];
+	double w[3];  
 	double jde;
 };
 

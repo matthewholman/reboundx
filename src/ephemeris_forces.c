@@ -88,6 +88,20 @@ enum {
         _NUM_TEST,
 };
 
+int body[11] = {
+        PLAN_SOL,                       // Sun (in barycentric)
+        PLAN_MER,                       // Mercury center
+        PLAN_VEN,                       // Venus center
+        PLAN_EAR,                       // Earth center
+        PLAN_LUN,                       // Moon center
+        PLAN_MAR,                       // Mars center
+        PLAN_JUP,                       // ...
+        PLAN_SAT,
+        PLAN_URA,
+        PLAN_NEP,
+        PLAN_PLU
+};
+
 // these are array indices for the internal interface
 enum {
         JPL_MER,                        // Mercury
@@ -127,7 +141,7 @@ struct _jpl_s {
 
 struct _jpl_s * jpl_init(void);
 int jpl_free(struct _jpl_s *jpl);
-void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double *u, double *v);
+void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double *u, double *v, double *w);
 int jpl_calc(struct _jpl_s *jpl, struct mpos_s *now, double jde, int n, int m);
 
 /////// private interface :
@@ -153,9 +167,10 @@ static inline void vecpos_div(double *u, double v)
  *
  */
 
-void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double *u, double *v)
+void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double *u, double *v, double *w)
 {
         double T[24], S[24];
+        double U[24];
         double t, c;
         int p, m, n, b;
 
@@ -163,25 +178,31 @@ void jpl_work(double *P, int ncm, int ncf, int niv, double t0, double t1, double
         t = t0 * (double)niv;
         t0 = 2.0 * fmod(t, 1.0) - 1.0;
         c = (double)(niv * 2) / t1 / 86400.0;
+
         b = (int)t;
 
         // set up Chebyshev polynomials and derivatives
         T[0] = 1.0; T[1] = t0;
         S[0] = 0.0; S[1] = 1.0;
+        U[0] = 0.0; U[1] = 0.0;	U[2] = 4.0;
 
         for (p = 2; p < ncf; p++) {
                 T[p] = 2.0 * t0 * T[p-1] - T[p-2];
                 S[p] = 2.0 * t0 * S[p-1] + 2.0 * T[p-1] - S[p-2];
         }
+        for (p = 3; p < ncf; p++) {
+                U[p] = 2.0 * t0 * U[p-1] + 4.0 * S[p-1] - U[p-2];
+        }
 
         // compute the position/velocity
         for (m = 0; m < ncm; m++) {
-                u[m] = v[m] = 0.0;
+                u[m] = v[m] = w[m] = 0.0;
                 n = ncf * (m + b * ncm);
 
                 for (p = 0; p < ncf; p++) {
                         u[m] += T[p] * P[n+p];
                         v[m] += S[p] * P[n+p] * c;
+                        w[m] += U[p] * P[n+p] * c * c;
                 }
         }
 }
@@ -311,40 +332,43 @@ int jpl_free(struct _jpl_s *jpl)
  */
 
 static void _bar(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { vecpos_nul(pos->u); vecpos_nul(pos->v); }
+        { vecpos_nul(pos->u); vecpos_nul(pos->v); vecpos_nul(pos->w); }
 static void _sun(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_SUN]], jpl->ncm[JPL_SUN], jpl->ncf[JPL_SUN], jpl->niv[JPL_SUN], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_SUN]], jpl->ncm[JPL_SUN], jpl->ncf[JPL_SUN], jpl->niv[JPL_SUN], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _emb(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _mer(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_MER]], jpl->ncm[JPL_MER], jpl->ncf[JPL_MER], jpl->niv[JPL_MER], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_MER]], jpl->ncm[JPL_MER], jpl->ncf[JPL_MER], jpl->niv[JPL_MER], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _ven(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_VEN]], jpl->ncm[JPL_VEN], jpl->ncf[JPL_VEN], jpl->niv[JPL_VEN], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_VEN]], jpl->ncm[JPL_VEN], jpl->ncf[JPL_VEN], jpl->niv[JPL_VEN], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _mar(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_MAR]], jpl->ncm[JPL_MAR], jpl->ncf[JPL_MAR], jpl->niv[JPL_MAR], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_MAR]], jpl->ncm[JPL_MAR], jpl->ncf[JPL_MAR], jpl->niv[JPL_MAR], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _jup(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_JUP]], jpl->ncm[JPL_JUP], jpl->ncf[JPL_JUP], jpl->niv[JPL_JUP], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_JUP]], jpl->ncm[JPL_JUP], jpl->ncf[JPL_JUP], jpl->niv[JPL_JUP], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _sat(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_SAT]], jpl->ncm[JPL_SAT], jpl->ncf[JPL_SAT], jpl->niv[JPL_SAT], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_SAT]], jpl->ncm[JPL_SAT], jpl->ncf[JPL_SAT], jpl->niv[JPL_SAT], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _ura(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_URA]], jpl->ncm[JPL_URA], jpl->ncf[JPL_URA], jpl->niv[JPL_URA], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_URA]], jpl->ncm[JPL_URA], jpl->ncf[JPL_URA], jpl->niv[JPL_URA], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _nep(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_NEP]], jpl->ncm[JPL_NEP], jpl->ncf[JPL_NEP], jpl->niv[JPL_NEP], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_NEP]], jpl->ncm[JPL_NEP], jpl->ncf[JPL_NEP], jpl->niv[JPL_NEP], t, jpl->inc, pos->u, pos->v, pos->w); }
 static void _plu(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
-        { jpl_work(&z[jpl->off[JPL_PLU]], jpl->ncm[JPL_PLU], jpl->ncf[JPL_PLU], jpl->niv[JPL_PLU], t, jpl->inc, pos->u, pos->v); }
+        { jpl_work(&z[jpl->off[JPL_PLU]], jpl->ncm[JPL_PLU], jpl->ncf[JPL_PLU], jpl->niv[JPL_PLU], t, jpl->inc, pos->u, pos->v, pos->w); }
 
 static void _ear(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
 {
         struct mpos_s emb, lun;
-
-        jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, emb.u, emb.v);
-        jpl_work(&z[jpl->off[JPL_LUN]], jpl->ncm[JPL_LUN], jpl->ncf[JPL_LUN], jpl->niv[JPL_LUN], t, jpl->inc, lun.u, lun.v);
+        jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, emb.u, emb.v, emb.w);
+        jpl_work(&z[jpl->off[JPL_LUN]], jpl->ncm[JPL_LUN], jpl->ncf[JPL_LUN], jpl->niv[JPL_LUN], t, jpl->inc, lun.u, lun.v, lun.w);
 
         vecpos_set(pos->u, emb.u);
         vecpos_off(pos->u, lun.u, -1.0 / (1.0 + jpl->cem));
 
         vecpos_set(pos->v, emb.v);
         vecpos_off(pos->v, lun.v, -1.0 / (1.0 + jpl->cem));
+
+        vecpos_set(pos->w, emb.w);
+        vecpos_off(pos->w, lun.w, -1.0 / (1.0 + jpl->cem));
+
 }
 
 /* This was not fully tested */
@@ -352,14 +376,18 @@ static void _lun(struct _jpl_s *jpl, double *z, double t, struct mpos_s *pos)
 {
         struct mpos_s emb, lun;
 
-        jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, emb.u, emb.v);
-        jpl_work(&z[jpl->off[JPL_LUN]], jpl->ncm[JPL_LUN], jpl->ncf[JPL_LUN], jpl->niv[JPL_LUN], t, jpl->inc, lun.u, lun.v);
+        jpl_work(&z[jpl->off[JPL_EMB]], jpl->ncm[JPL_EMB], jpl->ncf[JPL_EMB], jpl->niv[JPL_EMB], t, jpl->inc, emb.u, emb.v, emb.w);
+        jpl_work(&z[jpl->off[JPL_LUN]], jpl->ncm[JPL_LUN], jpl->ncf[JPL_LUN], jpl->niv[JPL_LUN], t, jpl->inc, lun.u, lun.v, lun.w);
 
         vecpos_set(pos->u, emb.u);
         vecpos_off(pos->u, lun.u, jpl->cem / (1.0 + jpl->cem));
 
         vecpos_set(pos->v, emb.v);
         vecpos_off(pos->v, lun.v, jpl->cem / (1.0 + jpl->cem));
+
+        vecpos_set(pos->w, emb.w);
+        vecpos_off(pos->w, lun.w, jpl->cem / (1.0 + jpl->cem));
+	
 }
 
 
@@ -395,17 +423,19 @@ int jpl_calc(struct _jpl_s *pl, struct mpos_s *now, double jde, int n, int m)
         for (p = 0; p < 3; p++) {
                 now->u[p] = pos.u[p] - ref.u[p];
                 now->v[p] = pos.v[p] - ref.v[p];
+                now->w[p] = pos.w[p] - ref.w[p];
         }
 
         now->jde = jde;
         return 0;
 }
 
-// Added gravitational constant G for the GR stuff (2020 Feb 26)
-// Added vx, vy, vz (2020 Feb 27)
+// Added gravitational constant G (2020 Feb 26)
+// Added vx, vy, vz for GR stuff (2020 Feb 27)
 void ephem(const double G, const int i, const double t, double* const m,
-		  double* const x, double* const y, double* const z,
-		  double* const vx, double* const vy, double* const vz){
+	   double* const x, double* const y, double* const z,
+	   double* const vx, double* const vy, double* const vz,
+	   double* const ax, double* const ay, double* const az){
 
     static int initialized = 0;
 
@@ -413,7 +443,6 @@ void ephem(const double G, const int i, const double t, double* const m,
     struct mpos_s now;
     double jde;
 
-    //printf("G: %lf\n", G);
     double M[11] =
       {
 	0.295912208285591100E-03, // 0  sun  
@@ -446,164 +475,44 @@ void ephem(const double G, const int i, const double t, double* const m,
 
     }
 
-    //jde = t + 2450123.7;  // t=0 is Julian day 2450123.7
-    jde = t;  
+    jde = t;
 
-    if (i==0){                           
-      *m = M[0];
-      jpl_calc(pl, &now, jde, PLAN_SOL, PLAN_BAR); //sun in barycentric coords. 
-      vecpos_div(now.u, pl->cau); 
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
+    // Get position, velocity, and mass of body i in barycentric coords. 
+    
+    *m = M[i];
 
-    if (i==1){
-      *m = M[1];
-      jpl_calc(pl, &now, jde, PLAN_MER, PLAN_BAR); //mercury in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
+    jpl_calc(pl, &now, jde, body[i], PLAN_BAR); 
 
-    if (i==2){
-      *m = M[2];
-      jpl_calc(pl, &now, jde, PLAN_VEN, PLAN_BAR); //venus in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
+    vecpos_div(now.u, pl->cau);
+    vecpos_div(now.v, pl->cau/86400.);
+    vecpos_div(now.w, pl->cau/(86400.*86400.));
 
-    if (i==3){
-      *m = M[3];
+    *x = now.u[0];
+    *y = now.u[1];
+    *z = now.u[2];
+    *vx = now.v[0];
+    *vy = now.v[1];
+    *vz = now.v[2];
+    *ax = now.w[0];
+    *ay = now.w[1];
+    *az = now.w[2];
+
+    if(0){ // make geocentric
       jpl_calc(pl, &now, jde, PLAN_EAR, PLAN_BAR); //earth in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
 
-    if (i==4){
-      *m = M[4];
-      jpl_calc(pl, &now, jde, PLAN_LUN, PLAN_BAR); //moon in barycentric coords. 
       vecpos_div(now.u, pl->cau);
       vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-    
-    if (i==5){
-      *m = M[5];
-      jpl_calc(pl, &now, jde, PLAN_MAR, PLAN_BAR); //mars in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-
-    if (i==6){
-      *m = M[6];
-      jpl_calc(pl, &now, jde, PLAN_JUP, PLAN_BAR); //jupiter in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-
-    if (i==7){
-      *m = M[7];
-      jpl_calc(pl, &now, jde, PLAN_SAT, PLAN_BAR); //saturn in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-    
-    if (i==8){
-      *m = M[8];
-      jpl_calc(pl, &now, jde, PLAN_URA, PLAN_BAR); //uranus in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-    
-    if (i==9){
-      *m = M[9];
-      jpl_calc(pl, &now, jde, PLAN_NEP, PLAN_BAR); //neptune in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-
-    if (i==10){
-      *m = M[10];
-      jpl_calc(pl, &now, jde, PLAN_PLU, PLAN_BAR); //neptune in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-      *x = now.u[0];
-      *y = now.u[1];
-      *z = now.u[2];
-      *vx = now.v[0];
-      *vy = now.v[1];
-      *vz = now.v[2];
-    }
-
-
-    if(0){ // making geocentric
-      jpl_calc(pl, &now, jde, PLAN_EAR, PLAN_BAR); //earth in barycentric coords. 
-      vecpos_div(now.u, pl->cau);
-      vecpos_div(now.v, (pl->cau/86400.));
-
+      vecpos_div(now.w, (pl->cau/86400.)*(pl->cau/86400.));
+      
       *x -= now.u[0];
       *y -= now.u[1];
       *z -= now.u[2];
       *vx -= now.v[0];
       *vy -= now.v[1];
       *vz -= now.v[2];
+      *ax -= now.w[0];
+      *ay -= now.w[1];
+      *az -= now.w[2];
 
     }
     
@@ -690,15 +599,16 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
     const double C2 = (*c)*(*c);
 
-    double m, x, y, z, vx, vy, vz;
-    double xs, ys, zs, vxs, vys, vzs;
-    double xe, ye, ze, vxe, vye, vze;    
+    double m, x, y, z, vx, vy, vz, ax, ay, az;
+    double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
+    double xe, ye, ze, vxe, vye, vze, axe, aye, aze;
 
-    ephem(G, 3, t, &m, &xe, &ye, &ze, &vxe, &vye, &vze); // Get position and mass of earth
+    ephem(G, 3, t, &m, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze); // Get position and mass of earth
 
     // Calculate acceleration due to sun and planets
     for (int i=0; i<*N_ephem; i++){
-        ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz); // Get position and mass of massive body i.
+        // Get position and mass of massive body i.
+        ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
         for (int j=0; j<N; j++){
   	  // Compute position vector of test particle j relative to massive body i.
             const double dx = xe + particles[j].x - x; 
@@ -714,7 +624,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Get position, velocity, and mass of the sun wrt barycenter
     // in order to translate heliocentric asteroids to barycenter.
-    ephem(G, 0, t, &m, &xs, &ys, &zs, &vxs, &vys, &vzs); 
+    ephem(G, 0, t, &m, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs); 
 
     // Now calculate acceleration due to massive asteroids
     for (int i=0; i<*N_ast; i++){
@@ -796,21 +706,25 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     }
 
-
     double dt = 1e-5;
 
-    double vxm, vym, vzm;
-    double vxp, vyp, vzp;
+    double vxm, vym, vzm, axm, aym, azm;
+    double vxp, vyp, vzp, axp, ayp, azp;
     
-    ephem(G, 3, t+dt, &m, &x, &y, &z, &vxp, &vyp, &vzp); // Get position and velocity of earth.
-    ephem(G, 3, t-dt, &m, &x, &y, &z, &vxm, &vym, &vzm); // Get position and velocity of earth.
+    //ephem(G, 3, t+dt, &m, &x, &y, &z, &vxp, &vyp, &vzp, &axp, &ayp, &azp); // Get position and velocity of earth.
+    //ephem(G, 3, t-dt, &m, &x, &y, &z, &vxm, &vym, &vzm, &axm, &aym, &azm); // Get position and velocity of earth.
     //printf("%le %le %le\n", vxp, vyp, vzp);
 
-    double axe = (vxp-vxm)/(2.0*dt);
-    double aye = (vyp-vym)/(2.0*dt);
-    double aze = (vzp-vzm)/(2.0*dt);
+    //double axe_v2 = (vxp-vxm)/(2.0*dt);
+    //double aye_v2 = (vyp-vym)/(2.0*dt);
+    //double aze_v2 = (vzp-vzm)/(2.0*dt);
 
-    //printf("%lf %le %le %le\n", t, axe, aye, aze);
+    double ae = sqrt(axe*axe + aye*aye + aze*aze);
+    double rho = sqrt(G*Msun/ae);
+
+    //printf("1 %lf %le %le %le\n", t, axe, aye, aze);
+    //printf("2 %lf %le %le %le\n", t, axe_v2, aye_v2, aze_v2);
+    //printf("%lf %le %le\n", t, ae, rho);
     //printf("%lf %le %le %le\n", t, particles[0].ax, particles[0].ay, particles[0].az);
 
     for (int i=0; i<N; i++){    
@@ -823,6 +737,4 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
     //printf("\n");
 
-    
-    
 }
