@@ -16,7 +16,8 @@
  *    pointers.  The return value of the function should represent success, failure, etc.
  * 
  * 1. Modify the code so that the initial conditions of the particle, the time
- *    span of the integration, and the time step come from a file.
+ *    span of the integration, and the time step come from a file.  We probably want to 
+ *    allow the user to specific barycentric or geocentric.
  * 
  * 2. Rearrange the ephem() function so that it returns all the positions in one shot.
  * 
