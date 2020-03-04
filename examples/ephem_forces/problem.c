@@ -23,7 +23,7 @@
  * 
  * 3. Check position of the moon.  DONE.
  * 
- * 4. Separate ephem() and ast_ephem() from the rest of ephemeris_forces code.
+ * 4. Separate ephem() and ast_ephem() from the rest of ephemeris_forces code.  DONE.
  * 
  * 5. Streamline ephem() function.  DONE.
  * 
@@ -108,6 +108,8 @@ int main(int argc, char* argv[]){
 
     */
 
+    // 2020 CD3
+    /* geocentric */
     tp.x  =  -4.222728794111765E-03;
     tp.y  =  -7.672121501277942E-03;
     tp.z  =   6.861481718947984E-03;
