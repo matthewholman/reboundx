@@ -60,13 +60,13 @@ int main(int argc, char* argv[]){
     r->gravity = REB_GRAVITY_NONE;
     r->usleep = 1000.;
 
-    r->t = 2458849.5; // set simulation internal time to the time of test particle initial conditions.
-
     struct reb_particle tp = {0};
 
     // Initial conditions for Ceres from JPL Horizons
     // Barycentric equatorial frame
-    
+
+    //r->t = 2458849.5; // set simulation internal time to the time of test particle initial conditions.
+
     /* Ceres
     tp.x = 1.003810191255037E+00;
     tp.y =-2.383247476572548E+00;
@@ -110,12 +110,23 @@ int main(int argc, char* argv[]){
 
     // 2020 CD3
     /* geocentric */
+    /*
     tp.x  =  -4.222728794111765E-03;
     tp.y  =  -7.672121501277942E-03;
     tp.z  =   6.861481718947984E-03;
     tp.vx =   2.589170139913478E-05;
     tp.vy =   9.226590401423815E-06;
     tp.vz =   7.662476921885610E-05;
+    */
+
+    r->t = 2457849.5; // set simulation internal time to the time of test particle initial conditions.    
+
+    tp.x  = 3.819266270586108E-03;
+    tp.y  = 4.257540337661480E-02;
+    tp.z  = 1.718858826540664E-02;
+    tp.vx = -7.140970075189795E-04;
+    tp.vy = -4.333972854764707E-04;
+    tp.vz = 1.991676323798766E-04;
     
     reb_add(r, tp);
 

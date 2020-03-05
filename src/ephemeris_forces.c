@@ -180,7 +180,9 @@ static void ast_ephem(const double G, const int i, const double jde, double* con
     // 1 Ceres, 4 Vesta, 2 Pallas, 10 Hygiea, 31 Euphrosyne, 704 Interamnia,
     // 511 Davida, 15 Eunomia, 3 Juno, 16 Psyche, 65 Cybele, 88 Thisbe, 
     // 48 Doris, 52 Europa, 451 Patientia, 87 Sylvia
-    
+
+    // The masses should come from some other place.
+    // The values below are G*mass, so we need to divide by G.
     double M[16] =
       {
 	1.400476556172344e-13, // ceres
@@ -289,14 +291,18 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
-    // Here is the treatment of the Earth's J2.
+    // Here is the treatment of the Earth's J2 and J4.
     // Borrowed code from gravitational_harmonics.
     // Assuming the coordinates are geocentric.
+    // Also assuming that Earth's pole is along the z
+    // axis.  This is only precisely true at the J2000
+    // epoch.
     //
     // Hard-coded constants.  BEWARE!
     //
     const double Mearth = 0.888769244512563400E-09/G;
-    const double J2 = 1.08262545e-3;
+    const double J2 = 0.00108262545;
+    const double J4 = -0.000001616;
     const double au = 149597870.700;
     const double R_eq = 6378.1263/au;
     for (int i=0; i<N; i++){
@@ -307,14 +313,22 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
         const double costheta2 = dz*dz/r2;
-        const double prefac = 3.*J2*R_eq*R_eq/r2/r2/r/2.;
-        const double fac = 5.*costheta2-1.;
+        const double J2_prefac = 3.*J2*R_eq*R_eq/r2/r2/r/2.;
+        const double J2_fac = 5.*costheta2-1.;
 
-        particles[i].ax += G*Mearth*prefac*fac*dx;
-        particles[i].ay += G*Mearth*prefac*fac*dy;
-        particles[i].az += G*Mearth*prefac*(fac-2.)*dz;
+        particles[i].ax += G*Mearth*J2_prefac*J2_fac*dx;
+        particles[i].ay += G*Mearth*J2_prefac*J2_fac*dy;
+        particles[i].az += G*Mearth*J2_prefac*(J2_fac-2.)*dz;
+
+        const double J4_prefac = 5.*J4*R_eq*R_eq*R_eq*R_eq/r2/r2/r2/r/8.;
+        const double J4_fac = 63.*costheta2*costheta2-42.*costheta2 + 3.;
+
+        particles[i].ax += G*Mearth*J4_prefac*J4_fac*dx;
+        particles[i].ay += G*Mearth*J4_prefac*J4_fac*dy;
+        particles[i].az += G*Mearth*J4_prefac*(J4_fac+12.-28.*costheta2)*dz;
+	
     }
-    
+
     // Here is the GR treatment
     const double Msun = 1.0; // mass of sun in solar masses.
     const double mu = G*Msun; // careful here.  We are assuming that the central body is at the barycenter.
