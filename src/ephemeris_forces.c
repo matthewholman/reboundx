@@ -289,6 +289,32 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
+    // Here is the treatment of the Earth's J2.
+    // Borrowed code from gravitational_harmonics.
+    // Assuming the coordinates are geocentric.
+    //
+    // Hard-coded constants.  BEWARE!
+    //
+    const double Mearth = 0.888769244512563400E-09/G;
+    const double J2 = 1.08262545e-3;
+    const double au = 149597870.700;
+    const double R_eq = 6378.1263/au;
+    for (int i=0; i<N; i++){
+        const struct reb_particle p = particles[i];
+        const double dx = p.x;
+        const double dy = p.y;
+        const double dz = p.z;
+        const double r2 = dx*dx + dy*dy + dz*dz;
+        const double r = sqrt(r2);
+        const double costheta2 = dz*dz/r2;
+        const double prefac = 3.*J2*R_eq*R_eq/r2/r2/r/2.;
+        const double fac = 5.*costheta2-1.;
+
+        particles[i].ax += G*Mearth*prefac*fac*dx;
+        particles[i].ay += G*Mearth*prefac*fac*dy;
+        particles[i].az += G*Mearth*prefac*(fac-2.)*dz;
+    }
+    
     // Here is the GR treatment
     const double Msun = 1.0; // mass of sun in solar masses.
     const double mu = G*Msun; // careful here.  We are assuming that the central body is at the barycenter.
