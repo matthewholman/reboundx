@@ -27,7 +27,8 @@
  * 
  * 5. Streamline ephem() function.  DONE.
  * 
- * 6. Put in earth J2 and J4.  DONE.
+ * 6. Put in earth J2 and J4.  DONE.  Could put in the orientation of the spin 
+ *    axis.  Can't include both J2/J4 of earth and sun without this.
  * 
  * 7. Put in J2 of the sun.  This will require thinking about the orientation of the spin 
  *    axis.
@@ -35,6 +36,7 @@
  *
  */
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
@@ -49,29 +51,45 @@ void ephem(const double G, const int i, const double t, double* const m,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az);
 
-void read_inputs(double* tstart, double* tstep, double* trange,
+void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 		 int* heliocentric, 
 		 double* xi, double* yi, double* zi,
 		 double* vxi, double* vyi, double* vzi);
 
-void read_inputs(double* tstart, double* tstep, double* trange,
+
+void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 		 int* heliocentric, 
 		 double* xi, double* yi, double* zi,
 		 double* vxi, double* vyi, double* vzi){
 
 
-     FILE* fp; 
-     fp = fopen("initial_conditions.txt","r");
+     char label[100]; /* hardwired for length */  
+     FILE* fp;
+     fp = fopen(filename, "r");
 
-     fscanf(fp, "%lf%lf%lf", tstart, tstep, trange);
-     fscanf(fp,"%d", heliocentric);
-     fscanf(fp, "%lf%lf%lf", xi, yi, zi);
-     fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
+     while(fscanf(fp, "%s", label) != EOF){
+       if(!strcmp(label, "tstart")){
+	 fscanf(fp, "%lf", tstart);     
+       } else if(!strcmp(label, "tstep")){
+	 fscanf(fp, "%lf", tstep);
+       } else if(!strcmp(label, "trange")){
+	 fscanf(fp, "%lf", trange);
+       } else if(!strcmp(label, "heliocentric")){
+	 fscanf(fp, "%d", heliocentric);
+       } else if(!strcmp(label, "state")){
+	 fscanf(fp, "%lf%lf%lf", xi, yi, zi);	 
+	 fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
+       } else {
+	 printf("No label: %s\n", label);
+	 exit(-1);
+       }
+     }
 
      fclose(fp);
 
 
 }
+
 
 int main(int argc, char* argv[]){
     struct reb_simulation* r = reb_create_simulation();
@@ -81,7 +99,7 @@ int main(int argc, char* argv[]){
     double xi, yi, zi, vxi, vyi, vzi;
     int heliocentric;
 
-    read_inputs(&tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+    read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
 
     printf("%lf %lf\n", tstart, tstep);
 
