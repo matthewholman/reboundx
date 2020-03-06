@@ -27,7 +27,10 @@
  * 
  * 5. Streamline ephem() function.  DONE.
  * 
- * 6. Put in earth J2 and J4, and J2 of the sun.  This is a low priority.
+ * 6. Put in earth J2 and J4.  DONE.
+ * 
+ * 7. Put in J2 of the sun.  This will require thinking about the orientation of the spin 
+ *    axis.
  *
  *
  */
