@@ -65,27 +65,31 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 
      char label[100]; /* hardwired for length */  
      FILE* fp;
-     fp = fopen(filename, "r");
 
-     while(fscanf(fp, "%s", label) != EOF){
-       if(!strcmp(label, "tstart")){
-	 fscanf(fp, "%lf", tstart);     
-       } else if(!strcmp(label, "tstep")){
-	 fscanf(fp, "%lf", tstep);
-       } else if(!strcmp(label, "trange")){
-	 fscanf(fp, "%lf", trange);
-       } else if(!strcmp(label, "heliocentric")){
-	 fscanf(fp, "%d", heliocentric);
-       } else if(!strcmp(label, "state")){
-	 fscanf(fp, "%lf%lf%lf", xi, yi, zi);	 
-	 fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
-       } else {
-	 printf("No label: %s\n", label);
-	 exit(-1);
-       }
+     //fp = fopen(filename, "r");
+     if((fp = fopen(filename, "r")) != NULL){
+
+      while(fscanf(fp, "%s", label) != EOF){
+        if(!strcmp(label, "tstart")){
+  	 fscanf(fp, "%lf", tstart);     
+        } else if(!strcmp(label, "tstep")){
+ 	 fscanf(fp, "%lf", tstep);
+        } else if(!strcmp(label, "trange")){
+ 	 fscanf(fp, "%lf", trange);
+        } else if(!strcmp(label, "heliocentric")){
+ 	 fscanf(fp, "%d", heliocentric);
+        } else if(!strcmp(label, "state")){
+ 	 fscanf(fp, "%lf%lf%lf", xi, yi, zi);	 
+ 	 fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
+        } else {
+ 	 printf("No label: %s\n", label);
+ 	 exit(-1);
+        }
+      }
+
+      fclose(fp);
      }
-
-     fclose(fp);
+     else{exit(-1);}
 
 
 }
@@ -99,7 +103,10 @@ int main(int argc, char* argv[]){
     double xi, yi, zi, vxi, vyi, vzi;
     int heliocentric;
 
-    read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+    if(argc >=2)
+       {read_inputs(argv[1], &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);}
+    else
+       {read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);}
 
     printf("%lf %lf\n", tstart, tstep);
 
