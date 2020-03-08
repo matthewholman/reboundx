@@ -17,7 +17,7 @@
  * 
  * 1. Modify the code so that the initial conditions of the particle, the time
  *    span of the integration, and the time step come from a file.  We probably want to 
- *    allow the user to specific barycentric or geocentric. DONE-ish.
+ *    allow the user to specific barycentric or geocentric. DONE.
  * 
  * 2. Rearrange the ephem() function so that it returns all the positions in one shot.
  * 
@@ -44,6 +44,9 @@
 #include "reboundx.h"
 
 double tmax;
+struct reb_particle outstate[10000];
+double outtime[10000];
+int n_out = 0;
 void heartbeat(struct reb_simulation* r);
 
 void ephem(const double G, const int i, const double t, double* const m,
@@ -52,13 +55,13 @@ void ephem(const double G, const int i, const double t, double* const m,
 	   double* const ax, double* const ay, double* const az);
 
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
-		 int* heliocentric, 
+		 int* geocentric, 
 		 double* xi, double* yi, double* zi,
 		 double* vxi, double* vyi, double* vzi);
 
 
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
-		 int* heliocentric, 
+		 int* geocentric, 
 		 double* xi, double* yi, double* zi,
 		 double* vxi, double* vyi, double* vzi){
 
@@ -66,7 +69,6 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
      char label[100]; /* hardwired for length */  
      FILE* fp;
 
-     //fp = fopen(filename, "r");
      if((fp = fopen(filename, "r")) != NULL){
 
       while(fscanf(fp, "%s", label) != EOF){
@@ -76,21 +78,22 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
  	 fscanf(fp, "%lf", tstep);
         } else if(!strcmp(label, "trange")){
  	 fscanf(fp, "%lf", trange);
-        } else if(!strcmp(label, "heliocentric")){
- 	 fscanf(fp, "%d", heliocentric);
+        } else if(!strcmp(label, "geocentric")){
+ 	 fscanf(fp, "%d", geocentric);
         } else if(!strcmp(label, "state")){
  	 fscanf(fp, "%lf%lf%lf", xi, yi, zi);	 
  	 fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
         } else {
  	 printf("No label: %s\n", label);
- 	 exit(-1);
+	 exit(EXIT_FAILURE);
         }
       }
 
       fclose(fp);
-     }
-     else{exit(-1);}
 
+     }else{
+       exit(EXIT_FAILURE);       
+     }
 
 }
 
@@ -101,29 +104,36 @@ int main(int argc, char* argv[]){
     // Read ICs & integration params from file
     double tstart, tstep, trange;
     double xi, yi, zi, vxi, vyi, vzi;
-    int heliocentric;
+    int geocentric;
 
-    if(argc >=2)
-       {read_inputs(argv[1], &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);}
-    else
-       {read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &heliocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);}
-
-    printf("%lf %lf\n", tstart, tstep);
+    if(argc >=2){
+      read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+    }else{
+      read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+    }
 
     // Setup constants
     r->G = 0.295912208285591100E-03; // Gravitational constant (AU, solar masses, days)
-    r->dt = tstep;                    // time step in days
     r->integrator = REB_INTEGRATOR_IAS15;
     r->heartbeat = heartbeat;
     r->display_data = NULL;
     r->collision = REB_COLLISION_DIRECT;
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
-    r->usleep = 10000.;
+    r->usleep = 20000.;
 
-    r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
+    struct rebx_extras* rebx = rebx_attach(r);
 
-    struct reb_particle tp = {0};
+    // Also add "ephemeris_forces" 
+    struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
+    rebx_add_force(rebx, ephem_forces);
+
+    rebx_set_param_int(rebx, &ephem_forces->ap, "geocentric", geocentric);
+
+    // Have to set speed of light in right units (set by G & initial conditions).  Here we use default units of AU/(yr/2pi)
+    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 11);
+    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
+    rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
 
     // Initial conditions for Ceres from JPL Horizons
     // Barycentric equatorial frame
@@ -168,14 +178,18 @@ int main(int argc, char* argv[]){
     tp.vz =   7.662476921885610E-05;
     */
 
-     if(heliocentric == 0){
+    struct reb_particle tp = {0};
+
+    tp.x  =  xi;
+    tp.y  =  yi;
+    tp.z  =  zi;
+    tp.vx =  vxi;
+    tp.vy =  vyi;
+    tp.vz =  vzi;
+    
+    /*
+     if(geocentric == 1){
        // geocentric
-       tp.x  =  xi;
-       tp.y  =  yi;
-       tp.z  =  zi;
-       tp.vx =  vxi;
-       tp.vy =  vyi;
-       tp.vz =  vzi;
      }else{
        // Shift to geocenter
        double xe, ye, ze, vxe, vye, vze, axe, aye, aze, m;
@@ -188,46 +202,58 @@ int main(int argc, char* argv[]){
        tp.vy = yi -vye;
        tp.vz = yi -vze;
       }
+    */
     
     reb_add(r, tp);
 
-    struct rebx_extras* rebx = rebx_attach(r);
-
-    // Also add "ephemeris_forces" 
-    struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
-    rebx_add_force(rebx, ephem_forces);
-
-    // Have to set speed of light in right units (set by G & initial conditions).  Here we use default units of AU/(yr/2pi)
-    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 11);
-    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
-    rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
-
-    tmax            = r->t + trange;
+    r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
+    tmax  = r->t + trange;
+    r->dt = tstep;                   // time step in days
+    reb_integrate(r, tmax);
 
     // clearing out the file
-    FILE* g = fopen("states.txt","w");
+    FILE* g = fopen("out_states.txt","w");
+
+    for(int i=0; i<n_out; i++){
+      fprintf(g,"%lf\t",outtime[i]);
+      struct reb_particle p = outstate[i];
+      fprintf(g,"%16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n",p.x,p.y,p.z,p.vx,p.vy,p.vz);
+    }
     fclose(g);
-    
-    reb_integrate(r, tmax);
 
 }
 
 void heartbeat(struct reb_simulation* r){
     if (reb_output_check(r, 0.5)){
         reb_output_timing(r, tmax);
-        reb_integrator_synchronize(r);
+        //reb_integrator_synchronize(r);
 
 	double xe, ye, ze, vxe, vye, vze, axe, aye, aze, m;	
-	ephem(r->G, 3, r->t, &m, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze); // Get position and mass of the earth wrt barycenter	
+	ephem(r->G, 3, r->t, &m, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze); // Get position and mass of the earth wrt barycenter
+	/*
         FILE* g = fopen("states.txt","a");
         fprintf(g,"%lf\t",r->t);
-	const int N = r->N;	
+	const int N = r->N;
 	for (int i=0;i<N;i++){
 	  struct reb_particle p = r->particles[i];
 	  fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",p.x,p.y,p.z,p.vx,p.vy,p.vz);
-	  //fprintf(g,"%e\t%e\t%e\t%e\t%e\t%e\n",p.x-xe, p.y-ye, p.z-ze, p.vx-vxe, p.vy-vye, p.vz-vze);	  
 	}
+
         fclose(g);
+	*/
+	
+	outstate[n_out].x = r->particles[0].x;
+	outstate[n_out].y = r->particles[0].y;
+	outstate[n_out].z = r->particles[0].z;
+	outstate[n_out].vx = r->particles[0].vx;
+	outstate[n_out].vy = r->particles[0].vy;
+	outstate[n_out].vz = r->particles[0].vz;
+
+	outtime[n_out] = r->t;
+
+	n_out += 1;
+	
+
     }
 }
 
