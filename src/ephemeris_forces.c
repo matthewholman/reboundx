@@ -268,6 +268,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	  const double dz =  particles[j].z + (zo - z);
 	  const double _r = sqrt(dx*dx + dy*dy + dz*dz);
 	  const double prefac = G*m/(_r*_r*_r);
+
+	  //printf("%le %le %le\n", dx, dy, dz);
 	  
 	  particles[j].ax -= prefac*dx;
 	  particles[j].ay -= prefac*dy;
@@ -306,9 +308,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // epoch.
     //
 
-    // The Earth is the center of the J2/J4 calculations.
+    // The geocenter is the reference for the J2/J4 calculations.
     xr = xe;  yr = ye;  zr = ze;
-
 
     // Hard-coded constants.  BEWARE!
     // Clean up on aisle 3!
@@ -329,9 +330,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     //printf("%lf %lf %lf\n", xp, yp, zp);
 
-    //double xp =  0.0019111736356920146;
-    //double yp = -1.2513100974355823e-05;
-    //double zp =   0.9999981736277104;
+    double xp =  0.0019111736356920146;
+    double yp = -1.2513100974355823e-05;
+    double zp =   0.9999981736277104;
 
     //xp = 0.0;
     //yp = 0.0;
@@ -344,9 +345,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     } else {
       longnode = 0.0;
     }
-
-    //longnode = 0.0;
-    //incl = 0.0;
 
     for (int i=0; i<N; i++){
         const struct reb_particle p = particles[i];
@@ -410,13 +408,12 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	
     }
 
-
     // Here is the treatment of the Sun's J2.
     // Borrowed code from gravitational_harmonics.
     // Also assuming that Sun's pole is along the z
     // axis.  This is not true.  Will correct soon.
 
-    // The Sun is the center of these calculations.
+    // The Sun center is reference for these calculations.
     xr = xs;  yr = ys;  zr = zs;
 
     // Hard-coded constants.  BEWARE!
@@ -440,9 +437,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
       longnode = 0.0;
     }
     
-    //longnode = 0.0;
-    //incl = 0.0;
-
     for (int i=0; i<N; i++){
         const struct reb_particle p = particles[i];
         double dx = p.x + (xo - xr);

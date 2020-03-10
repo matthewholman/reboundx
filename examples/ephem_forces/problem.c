@@ -140,15 +140,6 @@ int main(int argc, char* argv[]){
 
     //r->t = 2458849.5; // set simulation internal time to the time of test particle initial conditions.
 
-    /* Ceres
-    tp.x = 1.003810191255037E+00;
-    tp.y =-2.383247476572548E+00;
-    tp.z =-1.329143955066118E+00;
-    tp.vx = 9.193372298255753E-03;
-    tp.vy = 3.368462462504294E-03;
-    tp.vz = -2.856144947515055E-04;
-    */
-
     // Holman
     /*
     tp.x =  3.338876057509365E+00;
@@ -159,24 +150,6 @@ int main(int argc, char* argv[]){
     tp.vz = 2.980028369986096E-03;
     */
 
-    // 2020 CD3
-    /* heliocentric
-    tp.x  = -1.743654025843151E-01;
-    tp.y  = 8.883058030225525E-01;
-    tp.z  = 3.953036087753029E-01;
-    tp.vx = -1.722157767734381E-02;
-    tp.vy = -2.728117293034965E-03;
-    tp.vz = -1.109706882773078E-03;
-
-    // 2020 CD3
-    // geocentric 
-    tp.x  =  -4.222728794111765E-03;
-    tp.y  =  -7.672121501277942E-03;
-    tp.z  =   6.861481718947984E-03;
-    tp.vx =   2.589170139913478E-05;
-    tp.vy =   9.226590401423815E-06;
-    tp.vz =   7.662476921885610E-05;
-    */
 
     struct reb_particle tp = {0};
 
@@ -186,23 +159,6 @@ int main(int argc, char* argv[]){
     tp.vx =  vxi;
     tp.vy =  vyi;
     tp.vz =  vzi;
-    
-    /*
-     if(geocentric == 1){
-       // geocentric
-     }else{
-       // Shift to geocenter
-       double xe, ye, ze, vxe, vye, vze, axe, aye, aze, m;
-       ephem(r->G, 3, r->t, &m, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze); // Get position and mass of the earth wrt barycenter
-       //printf("%le %le %le %le %le %le %le %le %le\n", xe, ye, ze, vxe, vye, vze, axe, aye, aze);
-       tp.x = xi -xe;
-       tp.y = yi -ye;
-       tp.z = yi -ze;
-       tp.vx = yi -vxe;
-       tp.vy = yi -vye;
-       tp.vz = yi -vze;
-      }
-    */
     
     reb_add(r, tp);
 
