@@ -309,36 +309,104 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // The Earth is the center of the J2/J4 calculations.
     xr = xe;  yr = ye;  zr = ze;
 
+
     // Hard-coded constants.  BEWARE!
     // Clean up on aisle 3!
     const double Mearth = 0.888769244512563400E-09/G;
-    const double J2e = 0.00108262545;
+    const double J2e = 0.00108262545*1.001;
     const double J4e = -0.000001616;
     const double au = 149597870.700;
     const double Re_eq = 6378.1263/au;
+
+    // Unit vector to equatorial pole at the epoch
+
+    double RAs =  359.87123273*M_PI/180.;
+    double Decs =  89.88809752*M_PI/180.;
+
+    double xp = cos(Decs)*cos(RAs);
+    double yp = cos(Decs)*sin(RAs);
+    double zp = sin(Decs);
+
+    //printf("%lf %lf %lf\n", xp, yp, zp);
+
+    //double xp =  0.0019111736356920146;
+    //double yp = -1.2513100974355823e-05;
+    //double zp =   0.9999981736277104;
+
+    //xp = 0.0;
+    //yp = 0.0;
+    //zp = 1.0;
+    
+    double incl = acos(zp);
+    double longnode;
+    if(xp != 0.0 || yp !=0.0) {    
+      longnode = atan2(xp, -yp);
+    } else {
+      longnode = 0.0;
+    }
+
+    //longnode = 0.0;
+    //incl = 0.0;
+
     for (int i=0; i<N; i++){
         const struct reb_particle p = particles[i];
-        const double dx = p.x + (xo - xr);
-        const double dy = p.y + (yo - yr);
-        const double dz = p.z + (zo - zr);
+        double dx = p.x + (xo - xr);
+        double dy = p.y + (yo - yr);
+        double dz = p.z + (zo - zr);
 
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
+	
+	// Rotate to Earth equatorial frame
+
+	// Rotate around z by RA
+	double cosr = cos(-longnode);
+	double sinr = sin(-longnode);
+
+	double dxp =  dx * cosr - dy * sinr;
+	double dyp =  dx * sinr + dy * cosr;
+	double dzp =  dz;
+
+	// Rotate around x by Dec
+	double cosd = cos(-incl);
+	double sind = sin(-incl);
+	
+	dx =  dxp;
+	dy =  dyp * cosd - dzp * sind;
+	dz =  dyp * sind + dzp * cosd;
+
+	// Calculate acceleration in body frame
 	
         const double costheta2 = dz*dz/r2;
         const double J2e_prefac = 3.*J2e*Re_eq*Re_eq/r2/r2/r/2.;
         const double J2e_fac = 5.*costheta2-1.;
 
-        particles[i].ax += G*Mearth*J2e_prefac*J2e_fac*dx;
-        particles[i].ay += G*Mearth*J2e_prefac*J2e_fac*dy;
-        particles[i].az += G*Mearth*J2e_prefac*(J2e_fac-2.)*dz;
+	double resx = G*Mearth*J2e_prefac*J2e_fac*dx;
+	double resy = G*Mearth*J2e_prefac*J2e_fac*dy;
+	double resz = G*Mearth*J2e_prefac*(J2e_fac-2.)*dz;	
 
         const double J4e_prefac = 5.*J4e*Re_eq*Re_eq*Re_eq*Re_eq/r2/r2/r2/r/8.;
         const double J4e_fac = 63.*costheta2*costheta2-42.*costheta2 + 3.;
 
-        particles[i].ax += G*Mearth*J4e_prefac*J4e_fac*dx;
-        particles[i].ay += G*Mearth*J4e_prefac*J4e_fac*dy;
-        particles[i].az += G*Mearth*J4e_prefac*(J4e_fac+12.-28.*costheta2)*dz;
+        resx += G*Mearth*J4e_prefac*J4e_fac*dx;
+        resy += G*Mearth*J4e_prefac*J4e_fac*dy;
+        resz += G*Mearth*J4e_prefac*(J4e_fac+12.-28.*costheta2)*dz;
+
+	// Rotate back to original frame
+	// Rotate around x by -Dec
+	double resxp =  resx;
+	double resyp =  resy * cosd + resz * sind;
+	double reszp = -resy * sind + resz * cosd;
+	
+	// Rotate around z by -RA
+	resx =  resxp * cosr + resyp * sinr;
+	resy = -resxp * sinr + resyp * cosr;
+	resz =  reszp;
+
+	particles[i].ax += resx;
+        particles[i].ay += resy; 
+        particles[i].az += resz;
+	
 	
     }
 
@@ -358,21 +426,71 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const double Rs_eq = 696000.0/au;
     const double J2s = 2.1106088532726840e-07;
 
+    RAs = 268.13*M_PI/180.;
+    Decs = 63.87*M_PI/180.;
+
+    xp = cos(Decs)*cos(RAs);
+    yp = cos(Decs)*sin(RAs);
+    zp = sin(Decs);
+
+    incl = acos(zp);
+    if(xp != 0.0 || yp !=0.0) {    
+      longnode = atan2(xp, -yp);
+    } else {
+      longnode = 0.0;
+    }
+    
+    //longnode = 0.0;
+    //incl = 0.0;
+
     for (int i=0; i<N; i++){
         const struct reb_particle p = particles[i];
-        const double dx = p.x + (xo - xr);
-        const double dy = p.y + (yo - yr);
-        const double dz = p.z + (zo - zr);
+        double dx = p.x + (xo - xr);
+        double dy = p.y + (yo - yr);
+        double dz = p.z + (zo - zr);
 
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
-        const double costheta2 = dz*dz/r2;
+
+	// Rotate to solar equatorial frame
+
+	// Rotate around z by RA
+	double cosr = cos(-longnode);
+	double sinr = sin(-longnode);
+	
+	// Rotate around z by RA
+	double dxp =  dx * cosr - dy * sinr;
+	double dyp =  dx * sinr + dy * cosr;
+	double dzp =  dz;
+
+	// Rotate around x by Dec
+	double cosd = cos(-incl);
+	double sind = sin(-incl);
+
+	dx =  dxp;
+	dy =  dyp * cosd - dzp * sind;
+	dz =  dyp * sind + dzp * cosd;
+
+	const double costheta2 = dz*dz/r2;
         const double J2s_prefac = 3.*J2s*Rs_eq*Rs_eq/r2/r2/r/2.;
         const double J2s_fac = 5.*costheta2-1.;
 
+	// Calculate acceleration
 	double resx = G*Msun*J2s_prefac*J2s_fac*dx;
 	double resy = G*Msun*J2s_prefac*J2s_fac*dy;
 	double resz = G*Msun*J2s_prefac*(J2s_fac-2.)*dz;
+
+	// Rotate back to original frame
+	// Rotate around x by -Dec
+	double resxp =  resx;
+	double resyp =  resy * cosd + resz * sind;
+	double reszp = -resy * sind + resz * cosd;
+	
+	// Rotate around z by -RA
+	resx =  resxp * cosr + resyp * sinr;
+	resy = -resxp * sinr + resyp * cosr;
+	resz =  reszp;
+
         particles[i].ax += resx;
         particles[i].ay += resy;
         particles[i].az += resz;

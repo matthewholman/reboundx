@@ -91,7 +91,6 @@ struct _jpl_s * jpl_init(void)
 
 //      snprintf(buf, sizeof(buf), "/home/blah/wherever/linux_p1550p2650.430");
         snprintf(buf, sizeof(buf), "linux_p1550p2650.430");
-	//snprintf(buf, sizeof(buf), "/Users/aryaakmal/Documents/REBOUND/rebound/reboundx/examples/ephem_forces/linux_p1550p2650.430");
 
         if ((fd = open(buf, O_RDONLY)) < 0)
                 return NULL;
