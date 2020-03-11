@@ -100,9 +100,6 @@ int main(int argc, char* argv[]){
     struct reb_particle* outstate = malloc(10000*sizeof(struct reb_particle));
     double* outtime = malloc(10000*sizeof(double));
 
-    outtime[100] = 1.0;
-    outstate[100].x = 1.0;    
-
     int n_out;
   
     void integration_function(double tstart, double tstep, double trange, int geocentric,
