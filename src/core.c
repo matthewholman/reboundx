@@ -88,7 +88,6 @@ void rebx_register_default_params(struct rebx_extras* rebx){
     rebx_register_param(rebx, "N_ast", REBX_TYPE_DOUBLE);
     rebx_register_param(rebx, "geocentric", REBX_TYPE_INT);
     rebx_register_param(rebx, "outstate", REBX_TYPE_POINTER);
-    rebx_register_param(rebx, "outtime", REBX_TYPE_POINTER);
     rebx_register_param(rebx, "n_out", REBX_TYPE_INT);        
 }
 

@@ -44,6 +44,12 @@
 #include "reboundx.h"
 
 double tmax;
+
+typedef struct {
+  double t, x, y, z, vx, vy, vz;
+} tstate;
+
+
 void heartbeat(struct reb_simulation* r);
 
 void ephem(const double G, const int i, const double t, double* const m,
@@ -97,15 +103,13 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 
 int main(int argc, char* argv[]){
 
-    struct reb_particle* outstate = malloc(10000*sizeof(struct reb_particle));
-    double* outtime = malloc(10000*sizeof(double));
-
+    tstate* outstate = malloc(10000*sizeof(tstate));
+    
     int n_out;
   
     void integration_function(double tstart, double tstep, double trange, int geocentric,
 			      double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			      struct reb_particle *outstate,
-			      double* outtime,
+			      tstate *outstate,
 			      int* n_out);			      
   
     // Read ICs & integration params from file
@@ -121,25 +125,22 @@ int main(int argc, char* argv[]){
 
     integration_function(tstart, tstep, trange, geocentric,
 			 xi, yi, zi, vxi, vyi, vzi,
-			 outstate, outtime, &n_out);
+			 outstate, &n_out);
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
 
     for(int i=0; i<n_out; i++){
-      fprintf(g,"%lf\t",outtime[i]);
-      struct reb_particle p = outstate[i];
-      fprintf(g,"%16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n",p.x,p.y,p.z,p.vx,p.vy,p.vz);
+      tstate p = outstate[i];
+      fprintf(g,"%lf %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n",p.t, p.x,p.y,p.z,p.vx,p.vy,p.vz);
     }
     fclose(g);
 
 }
 
-
 void integration_function(double tstart, double tstep, double trange, int geocentric,
-			   double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			  struct reb_particle *outstate,
-			  double* outtime,
+			  double xi, double yi, double zi, double vxi, double vyi, double vzi,
+			  tstate *outstate,
 			  int* n_out){
 			  
     struct reb_simulation* r = reb_create_simulation();
@@ -174,7 +175,6 @@ void integration_function(double tstart, double tstep, double trange, int geocen
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
     rebx_set_param_pointer(rebx, &ephem_forces->ap, "outstate", outstate);
-    rebx_set_param_pointer(rebx, &ephem_forces->ap, "outtime", outtime);    
 
     struct reb_particle tp = {0};
 
@@ -207,9 +207,10 @@ void heartbeat(struct reb_simulation* r){
 	struct rebx_force* ephem_forces = rebx_get_force(rebx, "ephemeris_forces");
 
 	int *n_out = rebx_get_param(rebx, ephem_forces->ap, "n_out");
-	struct reb_particle* outstate = rebx_get_param(rebx, ephem_forces->ap, "outstate");
-	double* outtime  = rebx_get_param(rebx, ephem_forces->ap, "outtime");
-	
+	tstate* outstate = rebx_get_param(rebx, ephem_forces->ap, "outstate");
+	//double* outtime  = rebx_get_param(rebx, ephem_forces->ap, "outtime");
+
+	outstate[*n_out].t = r->t;	
 	outstate[*n_out].x = r->particles[0].x;
 	outstate[*n_out].y = r->particles[0].y;
 	outstate[*n_out].z = r->particles[0].z;
@@ -217,12 +218,10 @@ void heartbeat(struct reb_simulation* r){
 	outstate[*n_out].vy = r->particles[0].vy;
 	outstate[*n_out].vz = r->particles[0].vz;
 
-	outtime[*n_out] = r->t;
 
 	*n_out += 1;
 
 	rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", *n_out);
-
 
     }
 }
