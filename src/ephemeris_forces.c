@@ -324,9 +324,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     double RAs =  359.87123273*M_PI/180.;
     double Decs =  89.88809752*M_PI/180.;
 
-    double xp = cos(Decs)*cos(RAs);
-    double yp = cos(Decs)*sin(RAs);
-    double zp = sin(Decs);
+    //double xp = cos(Decs)*cos(RAs);
+    //double yp = cos(Decs)*sin(RAs);
+    //double zp = sin(Decs);
 
     //printf("%lf %lf %lf\n", xp, yp, zp);
 
