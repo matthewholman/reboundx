@@ -103,14 +103,15 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 
 int main(int argc, char* argv[]){
 
-    tstate* outstate = malloc(10000*sizeof(tstate));
+    // Need to clean this up to make the array size
+    // dynamic.
+    tstate* outstate = malloc(1000000*sizeof(tstate));
     
     int n_out;
   
     void integration_function(double tstart, double tstep, double trange, int geocentric,
 			      double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			      tstate *outstate,
-			      int* n_out);			      
+			      tstate *outstate, int* n_out);			      
   
     // Read ICs & integration params from file
     double tstart, tstep, trange;
@@ -140,9 +141,9 @@ int main(int argc, char* argv[]){
 
 void integration_function(double tstart, double tstep, double trange, int geocentric,
 			  double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			  tstate *outstate,
-			  int* n_out){
-			  
+			  tstate *outstate, int* n_out){
+
+    void store_function(struct reb_simulation* r, tstate* outstate, int n_out);
     struct reb_simulation* r = reb_create_simulation();
 
     // Set up simulation constants
@@ -154,6 +155,15 @@ void integration_function(double tstart, double tstep, double trange, int geocen
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
     r->usleep = 20000.;
+
+
+    int nsteps = fabs(trange/tstep) + 1;
+
+    double* times = malloc(nsteps*sizeof(double));
+    
+    for(int i=0; i<nsteps; i++){
+      times[i] = tstart + i*tstep;
+    }
 
     struct rebx_extras* rebx = rebx_attach(r);
 
@@ -191,24 +201,28 @@ void integration_function(double tstart, double tstep, double trange, int geocen
     tmax  = r->t + trange;
     r->dt = tstep;                   // time step in days
 
-    reb_integrate(r, tmax);
+
+    for(int i=0; i<nsteps; i++){
+
+      reb_integrate(r, times[i]);
+      store_function(r, outstate, i);
+      printf("here %d\n", i);
+
+    }
 
     int *no = rebx_get_param(rebx, ephem_forces->ap, "n_out");    
     *n_out = *no;
-
 }
 
 void heartbeat(struct reb_simulation* r){
     if (reb_output_check(r, 0.5)){
-        reb_output_timing(r, tmax);
-        //reb_integrator_synchronize(r);
+      //reb_output_timing(r, tmax);
 
 	struct rebx_extras* rebx = r->extras;
 	struct rebx_force* ephem_forces = rebx_get_force(rebx, "ephemeris_forces");
 
 	int *n_out = rebx_get_param(rebx, ephem_forces->ap, "n_out");
 	tstate* outstate = rebx_get_param(rebx, ephem_forces->ap, "outstate");
-	//double* outtime  = rebx_get_param(rebx, ephem_forces->ap, "outtime");
 
 	outstate[*n_out].t = r->t;	
 	outstate[*n_out].x = r->particles[0].x;
@@ -218,7 +232,6 @@ void heartbeat(struct reb_simulation* r){
 	outstate[*n_out].vy = r->particles[0].vy;
 	outstate[*n_out].vz = r->particles[0].vz;
 
-
 	*n_out += 1;
 
 	rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", *n_out);
@@ -226,4 +239,19 @@ void heartbeat(struct reb_simulation* r){
     }
 }
 
+void store_function(struct reb_simulation* r, tstate* outstate, int n_out){
+
+    printf("%d\n", n_out);
+    fflush(stdout);
+    outstate[n_out].t = r->t;	
+    outstate[n_out].x = r->particles[0].x;
+    outstate[n_out].y = r->particles[0].y;
+    outstate[n_out].z = r->particles[0].z;
+    outstate[n_out].vx = r->particles[0].vx;
+    outstate[n_out].vy = r->particles[0].vy;
+    outstate[n_out].vz = r->particles[0].vz;
+
+}
+
+ 
 
