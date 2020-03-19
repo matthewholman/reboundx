@@ -263,7 +263,7 @@ struct rebx_force* rebx_load_force(struct rebx_extras* const rebx, const char* n
     }
     else if (strcmp(name, "ephemeris_forces") == 0){
         force->update_accelerations = rebx_ephemeris_forces;
-        force->force_type = REBX_FORCE_POS;
+        force->force_type = REBX_FORCE_VEL;
     }
     else{
         char str[300];
