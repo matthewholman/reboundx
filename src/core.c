@@ -84,8 +84,8 @@ void rebx_register_default_params(struct rebx_extras* rebx){
     rebx_register_param(rebx, "min_distance", REBX_TYPE_DOUBLE);
     rebx_register_param(rebx, "min_distance_from", REBX_TYPE_UINT32);
     rebx_register_param(rebx, "min_distance_orbit", REBX_TYPE_ORBIT);
-    rebx_register_param(rebx, "N_ephem", REBX_TYPE_DOUBLE);
-    rebx_register_param(rebx, "N_ast", REBX_TYPE_DOUBLE);
+    rebx_register_param(rebx, "N_ephem", REBX_TYPE_INT);
+    rebx_register_param(rebx, "N_ast", REBX_TYPE_INT);
     rebx_register_param(rebx, "geocentric", REBX_TYPE_INT);
     rebx_register_param(rebx, "outstate", REBX_TYPE_POINTER);
     rebx_register_param(rebx, "n_out", REBX_TYPE_INT);        

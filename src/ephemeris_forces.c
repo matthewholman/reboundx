@@ -1,6 +1,7 @@
 /** * @file ephemeris_forces.c
  * @brief   A routine for ephemeris-quality force calculations.
  * @author  Matthew Holman <mholman@cfa.harvard.edu>
+ * @author  Arya Akmal <akmala@gmail.com>
  *
  *
  * Ephemeris-quality integrations
@@ -15,12 +16,14 @@
  *
  * Contributors:
  *
- * Arya Akmal <akmala@gmail.com>
- * Daniel Tamayo <>
- * Robert Weryk <>
+ *
+ * Robert Weryk <weryk@hawaii.edu>
+ * Daniel Tamayo <dtamayo@astro.princeton.edu>
  * Matthew Payne <mpayne@cfa.harvard.edu>
  * David Hernandez <dmhernandez@cfa.harvard.edu>
- * Hanno Rein <>
+ * Hanno Rein <hanno.rein@utoronto.ca>
+ * Davide Farnocchia <davide.farnocchia@jpl.nasa.gov>
+ * Jon Giorgini <jon.giorgini@jpl.nasa.gov>
  * 
  * To do:
  * 
