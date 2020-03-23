@@ -161,7 +161,7 @@ static void ast_ephem(const double G, const int i, const double jde, double* con
     static struct spk_s *spl;
     struct mpos_s pos;
 
-    static double M[11];    
+    static double M[16];    
 
     if(i<0 || i>15){
       fprintf(stderr, "asteroid out of range\n");
