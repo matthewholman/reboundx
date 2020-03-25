@@ -8,11 +8,9 @@ tstart, tstep, trange = 2458849.5, 20.0, 500
 geocentric = 0
 xi, yi, zi = 3.338876057509365E+00, -9.176517956664152E-01, -5.038590450387491E-01
 vxi, vyi, vzi = 2.805663678557796E-03, 7.550408259144305E-03, 2.980028369986096E-03
-states, nout, n_out = ephem_forces.integration_function(tstart, tstep, trange, geocentric,
+states, nout = ephem_forces.integration_function(tstart, tstep, trange, geocentric,
                                                  xi, yi, zi,
                                                  vxi, vyi, vzi)
-
-print(nout, n_out)
 for i, state in enumerate(states):
     print(i, state.t, state.x, state.y, state.z)
 
