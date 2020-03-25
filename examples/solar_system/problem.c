@@ -214,7 +214,7 @@ int main(int argc, char* argv[]){
     }
 
     // Test Particles
-    for (int i=0;i<125;i++){
+    for (int i=0;i<1;i++){
         double a = reb_random_uniform(0.4,20.);
         double e = reb_random_uniform(0.01,0.2);
         double omega = reb_random_uniform(0.,2.*M_PI);

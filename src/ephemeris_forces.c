@@ -51,6 +51,11 @@
  * 
  * 7. Put in J2 of the sun.  This will require thinking about the orientation of the spin 
  *    axis.  DONE.
+ *
+ * 8. Fix loop over particles.
+ * 
+ * 9. Develop sensible code that transitions to and from geocentric system.
+ *
  */
 
 #include <stdlib.h>
@@ -233,7 +238,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         reb_error(sim, "REBOUNDx Error: Need to set speed of light in gr effect.  See examples in documentation.\n");
         return;
     }
-    const double C2 = (*c)*(*c);
+    const double C2 = (*c)*(*c);  // This could be stored as C2.
 
     double m, x, y, z, vx, vy, vz, ax, ay, az;
     double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
@@ -241,7 +246,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     double xo, yo, zo, vxo, vyo, vzo;
     double xr, yr, zr, vxr, vyr, vzr;
 
-    int* geo = rebx_get_param(sim->extras, force->ap, "geocentric");
+    int* geo = rebx_get_param(sim->extras, force->ap, "geocentric"); // Make sure there is a default set.
 
     // Get mass, position, velocity, and acceleration of the Earth and Sun
     // for later use
@@ -256,8 +261,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
       xo = 0.0;  yo = 0.0;  zo = 0.0;
       vxo = 0.0; vyo = 0.0; vzo = 0.0;      
     }
-     
+
     // Calculate acceleration due to sun and planets
+    // Rearrange to get all the planet positions at once
     for (int i=0; i<*N_ephem; i++){
         // Get position and mass of massive body i.
         ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
@@ -279,11 +285,12 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
 
     // Calculate acceleration due to massive asteroids
+    // Rearrange to get all the asteroid positions at once
     for (int i=0; i<*N_ast; i++){
 
         ast_ephem(G, i, t, &m, &x, &y, &z); // Get position and mass of asteroid i.
 
-	// Translate massive asteroids from heliocentric to barycenter.
+	// Translate massive asteroids from heliocentric to barycentric.
 	x += xs; y += ys; z += zs;
 	
         for (int j=0; j<N; j++){
@@ -301,8 +308,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
 
     // Here is the treatment of the Earth's J2 and J4.
-    // Borrowed code from gravitational_harmonics.
-    // Assuming the coordinates are geocentric.
+    // Borrowed code from gravitational_harmonics example.
+    // Assumes the coordinates are geocentric.
     // Also assuming that Earth's pole is along the z
     // axis.  This is only precisely true at the J2000
     // epoch.
@@ -320,6 +327,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const double Re_eq = 6378.1263/au;
 
     // Unit vector to equatorial pole at the epoch
+    // Clean this up!
 
     double RAs =  359.87123273*M_PI/180.;
     double Decs =  89.88809752*M_PI/180.;
@@ -346,6 +354,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
       longnode = 0.0;
     }
 
+    // Rearrange this loop for efficiency
     for (int i=0; i<N; i++){
         const struct reb_particle p = particles[i];
         double dx = p.x + (xo - xr);
@@ -356,6 +365,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         const double r = sqrt(r2);
 	
 	// Rotate to Earth equatorial frame
+	// This could be a single rotation
 
 	// Rotate around z by RA
 	double cosr = cos(-longnode);
@@ -634,7 +644,7 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 
     double* times = malloc(nouts*sizeof(double));
 
-    for(int i=0; i<nsteps; i++){
+    for(int i=0; i<=nsteps; i++){
       times[i] = tstart + i*tstep;
     }
 
@@ -686,7 +696,7 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 
     reb_integrate(r, times[0]);    
     reb_update_acceleration(r); // This should not be needed but is.
-    for(int j=1; j<nsteps; j++){
+    for(int j=1; j<=nsteps; j++){
 
       last.t = r->t;	
       last.x = r->particles[0].x;
@@ -706,7 +716,7 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 
     }
     
-    *n_out = (nsteps-1)*8;
+    *n_out = nsteps*8;
 
     free(times);
 

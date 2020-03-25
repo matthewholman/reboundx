@@ -40,5 +40,5 @@ def integration_function(tstart, tstep, trange, geocentric,
                                          byref(outstate_arr),
                                          byref(nout))
 
-    return outstate_arr, nout.value
+    return outstate_arr, nout.value, n_out
 
