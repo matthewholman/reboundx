@@ -13,7 +13,8 @@ typedef struct {
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 		 int* geocentric, 
 		 double* xi, double* yi, double* zi,
-		 double* vxi, double* vyi, double* vzi);
+                 double* vxi, double* vyi, double* vzi, int* n_testicles);
+
 
 
 int main(int argc, char* argv[]){
@@ -28,16 +29,35 @@ int main(int argc, char* argv[]){
 			      double xi, double yi, double zi, double vxi, double vyi, double vzi,
 			      tstate *outstate, int* n_out);			      
   
+
     // Read ICs & integration params from file
     double tstart, tstep, trange;
-    double xi, yi, zi, vxi, vyi, vzi;
+    double *xi, *yi, *zi;
+    double *vxi, *vyi, *vzi;
     int geocentric;
+    int n_testicles;
+
+    //harcoded allocation for max particles
+    xi = (double*)calloc(10,sizeof(double));
+    yi = (double*)calloc(10,sizeof(double));
+    zi = (double*)calloc(10,sizeof(double));
+    vxi = (double*)calloc(10,sizeof(double));
+    vyi = (double*)calloc(10,sizeof(double));
+    vzi = (double*)calloc(10,sizeof(double));
 
     if(argc >=2){
-      read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+      read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, xi, yi, zi, vxi, vyi, vzi, &n_testicles);
     }else{
-      read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, &xi, &yi, &zi, &vxi, &vyi, &vzi);
+      read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, xi, yi, zi, vxi, vyi, vzi, &n_testicles);
     }
+
+    //deallocate unused space
+    xi = realloc(xi, ((n_testicles)*sizeof(double)));
+    yi = realloc(yi, ((n_testicles)*sizeof(double)));
+    zi = realloc(zi, ((n_testicles)*sizeof(double)));
+    vxi = realloc(vxi, ((n_testicles)*sizeof(double)));
+    vyi = realloc(vyi, ((n_testicles)*sizeof(double)));
+    vzi = realloc(vzi, ((n_testicles)*sizeof(double)));
 
     integration_function(tstart, tstep, trange, geocentric,
 			 xi, yi, zi, vxi, vyi, vzi,
@@ -54,41 +74,42 @@ int main(int argc, char* argv[]){
 
 }
 
-
-
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
-		 int* geocentric, 
-		 double* xi, double* yi, double* zi,
-		 double* vxi, double* vyi, double* vzi){
+                 int* geocentric,
+                 double* xi, double* yi, double* zi,
+                 double* vxi, double* vyi, double* vzi, int* n_testicles){
 
 
-     char label[100]; /* hardwired for length */  
+     char label[100]; /* hardwired for length */
      FILE* fp;
 
+     *n_testicles = 0;
      if((fp = fopen(filename, "r")) != NULL){
 
       while(fscanf(fp, "%s", label) != EOF){
         if(!strcmp(label, "tstart")){
-  	 fscanf(fp, "%lf", tstart);     
+         fscanf(fp, "%lf", tstart);
         } else if(!strcmp(label, "tstep")){
- 	 fscanf(fp, "%lf", tstep);
+         fscanf(fp, "%lf", tstep);
         } else if(!strcmp(label, "trange")){
- 	 fscanf(fp, "%lf", trange);
+         fscanf(fp, "%lf", trange);
         } else if(!strcmp(label, "geocentric")){
- 	 fscanf(fp, "%d", geocentric);
+         fscanf(fp, "%d", geocentric);
         } else if(!strcmp(label, "state")){
- 	 fscanf(fp, "%lf%lf%lf", xi, yi, zi);	 
- 	 fscanf(fp, "%lf%lf%lf", vxi, vyi, vzi);
+         (*n_testicles)++;
+         fscanf(fp, "%lf%lf%lf", &xi[(*n_testicles)-1], &yi[(*n_testicles)-1], &zi[(*n_testicles)-1]);
+         fscanf(fp, "%lf%lf%lf", &vxi[(*n_testicles)-1], &vyi[(*n_testicles)-1], &vzi[(*n_testicles)-1]);
         } else {
- 	 printf("No label: %s\n", label);
-	 exit(EXIT_FAILURE);
+         printf("No label: %s\n", label);
+         exit(EXIT_FAILURE);
         }
       }
 
       fclose(fp);
 
      }else{
-       exit(EXIT_FAILURE);       
+       exit(EXIT_FAILURE);
      }
 
 }
+
