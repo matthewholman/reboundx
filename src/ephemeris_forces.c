@@ -770,7 +770,7 @@ void store_function(struct reb_simulation* r, tstate* outstate, int n_particles,
 	outstate[n_out*n_particles+i].z = last[i].z;
 	outstate[n_out*n_particles+i].vx = last[i].vx;
 	outstate[n_out*n_particles+i].vy = last[i].vy;
-	outstate[n_out].vz = last[i].vz;
+	outstate[n_out*n_particles+i].vz = last[i].vz;
     }
 
     // Convenience variable.  The 'br' field contains the 

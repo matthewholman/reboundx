@@ -67,7 +67,8 @@ int main(int argc, char* argv[]){
     FILE* g = fopen("out_states.txt","w");
 
     printf("%d %d\n", n_particles, n_out);
-    for(int i=0; i<n_out; i++){
+    //for(int i=0; i<n_out; i++){
+    for(int i=0; i<n_out*n_particles; i++){    
       tstate p = outstate[i];
       fprintf(g,"%lf %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n",p.t, p.x,p.y,p.z,p.vx,p.vy,p.vz);
     }
