@@ -623,8 +623,8 @@ typedef struct {
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
 int integration_function(double tstart, double tstep, double trange, int geocentric,
-			  double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			  tstate *outstate, int* n_out){
+			  double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
+			  tstate *outstate, int* n_out, int n_testicles){
 
     void store_function(struct reb_simulation* r, tstate* outstate, tstate last, int n_out);
     struct reb_simulation* r = reb_create_simulation();
