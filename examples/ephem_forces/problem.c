@@ -26,8 +26,8 @@ int main(int argc, char* argv[]){
     int n_out;
 
     int integration_function(double tstart, double tstep, double trange, int geocentric,
-			      double xi, double yi, double zi, double vxi, double vyi, double vzi,
-			      tstate *outstate, int* n_out);			      
+			      double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
+			      tstate *outstate, int* n_out, int n_testicles);			      
   
 
     // Read ICs & integration params from file
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]){
 
     integration_function(tstart, tstep, trange, geocentric,
 			 xi, yi, zi, vxi, vyi, vzi,
-			 outstate, &n_out);
+			 outstate, &n_out, n_testicles);
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
