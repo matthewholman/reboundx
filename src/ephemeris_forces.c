@@ -669,16 +669,31 @@ int integration_function(double tstart, double tstep, double trange, int geocent
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
     rebx_set_param_pointer(rebx, &ephem_forces->ap, "outstate", outstate);
 
+/*
     struct reb_particle tp = {0};
 
-    tp.x  =  xi;
-    tp.y  =  yi;
-    tp.z  =  zi;
-    tp.vx =  vxi;
-    tp.vy =  vyi;
-    tp.vz =  vzi;
-    
+    tp.x  =  xi[0];
+    tp.y  =  yi[0];
+    tp.z  =  zi[0];
+    tp.vx =  vxi[0];
+    tp.vy =  vyi[0];
+    tp.vz =  vzi[0];
+
     reb_add(r, tp);
+*/
+    struct reb_particle tp[n_testicles]; // cannot initialize variable sized object to {0}
+    for(int i=0; i<n_testicles; i++){
+     tp[i].m  =  0;   
+     tp[i].x  =  xi[i];
+     tp[i].y  =  yi[i];
+     tp[i].z  =  zi[i];
+     tp[i].vx =  vxi[i];
+     tp[i].vy =  vyi[i];
+     tp[i].vz =  vzi[i];
+    
+     reb_add(r, tp[i]);
+    }
+  
 
     r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
     //tmax  = r->t + trange;
