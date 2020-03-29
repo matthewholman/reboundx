@@ -195,7 +195,7 @@ int main(int argc, char* argv[]){
     struct reb_simulation* r = reb_create_simulation();
     // Setup constants
     r->dt             = 1;                // in days
-    tmax            = 100;            // 200 Myr
+    tmax            = 10000;            // 200 Myr
     r->G            = 1.0;
     //r->ri_whfast.safe_mode     = 0;        // Turn off safe mode. Need to call reb_integrator_synchronize() before outputs. 
     //r->ri_whfast.corrector     = 11;        // 11th order symplectic corrector
