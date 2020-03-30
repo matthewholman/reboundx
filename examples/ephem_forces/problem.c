@@ -11,7 +11,7 @@ typedef struct {
 } tstate;
 
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
-		 int* geocentric, 
+		 int* geocentric,
 		 double* xi, double* yi, double* zi,
 		 double* vxi, double* vyi, double* vzi,
 		 int* n_particles);
@@ -20,15 +20,16 @@ int main(int argc, char* argv[]){
 
     // Need to clean this up to make the array size
     // dynamic.
-    tstate* outstate = malloc(100000*sizeof(tstate));
+    double* outstate = malloc(100000*6*sizeof(double));
+    double* outtime  = malloc(100000*1*sizeof(double));    
     
     int n_out;
 
     int integration_function(double tstart, double tstep, double trange, int geocentric,
-			     double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
 			     int n_particles,
-			     tstate* outstate, int* n_out);			      
-
+			     double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
+			     int* n_out, double* outtime, double* outstate);
+    
     // Read ICs & integration params from file
     double tstart, tstep, trange;
     double *xi, *yi, *zi;
@@ -37,12 +38,12 @@ int main(int argc, char* argv[]){
     int n_particles;
 
     //harcoded allocation for max particles
-    xi = (double*)calloc(10,sizeof(double));
-    yi = (double*)calloc(10,sizeof(double));
-    zi = (double*)calloc(10,sizeof(double));
-    vxi = (double*)calloc(10,sizeof(double));
-    vyi = (double*)calloc(10,sizeof(double));
-    vzi = (double*)calloc(10,sizeof(double));
+    xi = (double*)calloc(1000, sizeof(double));
+    yi = (double*)calloc(1000, sizeof(double));
+    zi = (double*)calloc(1000, sizeof(double));
+    vxi = (double*)calloc(1000, sizeof(double));
+    vyi = (double*)calloc(1000, sizeof(double));
+    vzi = (double*)calloc(1000, sizeof(double));
 
     if(argc >=2){
       read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, xi, yi, zi, vxi, vyi, vzi, &n_particles);
@@ -58,19 +59,30 @@ int main(int argc, char* argv[]){
     vyi = realloc(vyi, ((n_particles)*sizeof(double)));
     vzi = realloc(vzi, ((n_particles)*sizeof(double)));
 
+    int integration_function(double tstart, double tstep, double trange, int geocentric,
+			     int n_particles,
+			     double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
+			     int* n_out, double* outtime, double* outstate);
+    
+    
     integration_function(tstart, tstep, trange, geocentric,
-			 xi, yi, zi, vxi, vyi, vzi,
 			 n_particles,
-			 outstate, &n_out);
+			 xi, yi, zi, vxi, vyi, vzi,
+			 &n_out, outtime, outstate);
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
 
-    printf("%d %d\n", n_particles, n_out);
-    //for(int i=0; i<n_out; i++){
-    for(int i=0; i<n_out*n_particles; i++){    
-      tstate p = outstate[i];
-      fprintf(g,"%lf %16.8e %16.8e %16.8e %16.8e %16.8e %16.8e\n",p.t, p.x,p.y,p.z,p.vx,p.vy,p.vz);
+    for(int i=0; i<n_out; i++){
+	for(int j=0; j<n_particles; j++){
+	    fprintf(g,"%lf ", outtime[i]);
+	    fprintf(g,"%d ", j);
+	    int offset = (i*n_particles+j)*6;
+	    for(int k=0; k<6; k++){
+		fprintf(g,"%16.8e ", outstate[offset+k]);
+	    }
+	    fprintf(g,"\n");
+	}
     }
     fclose(g);    
 

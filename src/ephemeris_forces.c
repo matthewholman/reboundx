@@ -521,7 +521,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     //xr = 0.0;  yr = 0.0;  zr = 0.0;
     //vxr = 0.0; vyr = 0.0; vzr = 0.0;      
 
-    /*
     const double mu = G*Msun; 
     const int max_iterations = 10; // hard-coded parameter.
     for (int j=0; j<N; j++){
@@ -581,7 +580,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
 
     }
-    */
 
 
     // The expressions below are in here for another purpose.
@@ -644,11 +642,11 @@ typedef struct {
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
 int integration_function(double tstart, double tstep, double trange, int geocentric,
+			 int n_particles,
 			 double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
-			 int n_particles,			 
-			 tstate* outstate, int* n_out){
+			 int* n_out, double* outtime, double* outstate){
 
-    void store_function(struct reb_simulation* r, tstate* outstate, int n_particles, tstate* last, int n_out);
+    void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate);
     struct reb_simulation* r = reb_create_simulation();
 
     // Set up simulation constants
@@ -710,39 +708,41 @@ int integration_function(double tstart, double tstep, double trange, int geocent
     //tmax  = r->t + trange;
     r->dt = tstep;    // time step in days
 
-    for(int i=0; i<N; i++){    
-	outstate[i].t = r->t;	
-	outstate[i].x = r->particles[i].x;
-	outstate[i].y = r->particles[i].y;
-	outstate[i].z = r->particles[i].z;
-	outstate[i].vx = r->particles[i].vx;
-	outstate[i].vy = r->particles[i].vy;
-	outstate[i].vz = r->particles[i].vz;
+    outtime[0] = r->t;	
+    
+    for(int j=0; j<N; j++){
+	int offset = j*6;
+	outstate[offset+0] = r->particles[j].x;
+	outstate[offset+1] = r->particles[j].y;
+	outstate[offset+2] = r->particles[j].z;
+	outstate[offset+3] = r->particles[j].vx;
+	outstate[offset+4] = r->particles[j].vy;
+	outstate[offset+5] = r->particles[j].vz;
     }
-
+	
     tstate last[n_particles];
 
     reb_integrate(r, times[0]);
     reb_update_acceleration(r); // This should not be needed but is.
 
-    for(int j=1; j<=nsteps; j++){
+    for(int i=1; i<=nsteps; i++){
 
-	for(int i=0; i<N; i++){
-	    last[i].t = r->t;	
-	    last[i].x = r->particles[i].x;
-	    last[i].y = r->particles[i].y;
-	    last[i].z = r->particles[i].z;
-	    last[i].vx = r->particles[i].vx;
-	    last[i].vy = r->particles[i].vy;
-	    last[i].vz = r->particles[i].vz;
-	    last[i].ax = r->particles[i].ax;
-	    last[i].ay = r->particles[i].ay;
-	    last[i].az = r->particles[i].az;
+	for(int j=0; j<N; j++){
+	    last[j].t = r->t;	
+	    last[j].x = r->particles[j].x;
+	    last[j].y = r->particles[j].y;
+	    last[j].z = r->particles[j].z;
+	    last[j].vx = r->particles[j].vx;
+	    last[j].vy = r->particles[j].vy;
+	    last[j].vz = r->particles[j].vz;
+	    last[j].ax = r->particles[j].ax;
+	    last[j].ay = r->particles[j].ay;
+	    last[j].az = r->particles[j].az;
 	}
 
 	//reb_integrate(r, times[j]);
 	reb_step(r);
-	store_function(r, outstate, n_particles, last, 8*(j-1));
+	store_function(r, 8*(i-1), n_particles, last, outtime, outstate);
 	reb_update_acceleration(r);
 
     }
@@ -757,22 +757,24 @@ int integration_function(double tstart, double tstep, double trange, int geocent
     return(1);
 }
 
-void store_function(struct reb_simulation* r, tstate* outstate, int n_particles, tstate* last, int n_out){
+void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate){
     
     int N = r->N;
     int N3 = 3*N;
     double s[9]; // Summation coefficients
 
-    for(int i=0; i<n_particles; i++){        
-	outstate[n_out*n_particles+i].t = last[i].t;
-	outstate[n_out*n_particles+i].x = last[i].x;
-	outstate[n_out*n_particles+i].y = last[i].y;
-	outstate[n_out*n_particles+i].z = last[i].z;
-	outstate[n_out*n_particles+i].vx = last[i].vx;
-	outstate[n_out*n_particles+i].vy = last[i].vy;
-	outstate[n_out*n_particles+i].vz = last[i].vz;
-    }
+    outtime[n_out] = last[0].t;    
 
+    for(int j=0; j<n_particles; j++){
+	int offset = (n_out*n_particles+j)*6;
+	outstate[offset+0] = last[j].x;
+	outstate[offset+1] = last[j].y;	
+	outstate[offset+2] = last[j].z;
+	outstate[offset+3] = last[j].vx;	
+	outstate[offset+4] = last[j].vy;
+	outstate[offset+5] = last[j].vz;	
+    }
+    
     // Convenience variable.  The 'br' field contains the 
     // set of coefficients from the last completed step.
     const struct reb_dpconst7 b  = dpcast(r->ri_ias15.br);
@@ -781,23 +783,23 @@ void store_function(struct reb_simulation* r, tstate* outstate, int n_particles,
     double* v0 = malloc(sizeof(double)*N3);
     double* a0 = malloc(sizeof(double)*N3);
 
-    for(int i=0;i<N;i++) {
+    for(int j=0;j<N;j++) {
 
-	const int k0 = 3*i+0;
-	const int k1 = 3*i+1;
-	const int k2 = 3*i+2;
+	const int k0 = 3*j+0;
+	const int k1 = 3*j+1;
+	const int k2 = 3*j+2;
 
-	x0[k0] = last[i].x;
-	x0[k1] = last[i].y;
-	x0[k2] = last[i].z;	
+	x0[k0] = last[j].x;
+	x0[k1] = last[j].y;
+	x0[k2] = last[j].z;	
 
-	v0[k0] = last[i].vx;
-	v0[k1] = last[i].vy;
-	v0[k2] = last[i].vz;	
+	v0[k0] = last[j].vx;
+	v0[k1] = last[j].vy;
+	v0[k2] = last[j].vz;	
 
-	a0[k0] = last[i].ax;
-	a0[k1] = last[i].ay;
-	a0[k2] = last[i].az;
+	a0[k0] = last[j].ax;
+	a0[k1] = last[j].ay;
+	a0[k2] = last[j].az;
 
     }
 
@@ -816,22 +818,23 @@ void store_function(struct reb_simulation* r, tstate* outstate, int n_particles,
 	s[8] = 7. * s[7] * h[n] / 9.;
 
 	// Predict positions at interval n using b values	
-	for(int i=0;i<N;i++) {  
-	  //int mi = i;
-	  const int k0 = 3*i+0;
-	  const int k1 = 3*i+1;
-	  const int k2 = 3*i+2;
+	for(int j=0;j<N;j++) {  
+	  //int mj = j;
+	  const int k0 = 3*j+0;
+	  const int k1 = 3*j+1;
+	  const int k2 = 3*j+2;
 
 	  double xx0 = x0[k0] + (s[8]*b.p6[k0] + s[7]*b.p5[k0] + s[6]*b.p4[k0] + s[5]*b.p3[k0] + s[4]*b.p2[k0] + s[3]*b.p1[k0] + s[2]*b.p0[k0] + s[1]*a0[k0] + s[0]*v0[k0] );
 	  double xy0 = x0[k1] + (s[8]*b.p6[k1] + s[7]*b.p5[k1] + s[6]*b.p4[k1] + s[5]*b.p3[k1] + s[4]*b.p2[k1] + s[3]*b.p1[k1] + s[2]*b.p0[k1] + s[1]*a0[k1] + s[0]*v0[k1] );
 	  double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
 
 	  double t = r->t + r->dt_last_done * (h[n] - 1.0);
-	  
-	  outstate[(n_out+n)*n_particles+i].t = t;
-	  outstate[(n_out+n)*n_particles+i].x = xx0;
-	  outstate[(n_out+n)*n_particles+i].y = xy0;	  	  
-	  outstate[(n_out+n)*n_particles+i].z = xz0;
+
+	  int offset = ((n_out+n)*n_particles+j)*6;	  
+	  outtime[n_out+n] = t;
+	  outstate[offset+0] = xx0;
+	  outstate[offset+1] = xy0;	  	  
+	  outstate[offset+2] = xz0;
 	  
 	}
 
@@ -845,20 +848,21 @@ void store_function(struct reb_simulation* r, tstate* outstate, int n_particles,
 	s[7] = 7. * s[6] * h[n] / 8.;
 
 	// Predict velocities at interval n using b values	
-	for(int i=0;i<N;i++) {
+	for(int j=0;j<N;j++) {
 
-	  const int k0 = 3*i+0;
-	  const int k1 = 3*i+1;
-	  const int k2 = 3*i+2;
+	  const int k0 = 3*j+0;
+	  const int k1 = 3*j+1;
+	  const int k2 = 3*j+2;
 
 	  double vx0 = v0[k0] + s[7]*b.p6[k0] + s[6]*b.p5[k0] + s[5]*b.p4[k0] + s[4]*b.p3[k0] + s[3]*b.p2[k0] + s[2]*b.p1[k0] + s[1]*b.p0[k0] + s[0]*a0[k0];
 	  double vy0 = v0[k1] + s[7]*b.p6[k1] + s[6]*b.p5[k1] + s[5]*b.p4[k1] + s[4]*b.p3[k1] + s[3]*b.p2[k1] + s[2]*b.p1[k1] + s[1]*b.p0[k1] + s[0]*a0[k1];
 	  double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
 
-	  outstate[(n_out+n)*n_particles+i].vx = vx0;
-	  outstate[(n_out+n)*n_particles+i].vy = vy0;	  	  
-	  outstate[(n_out+n)*n_particles+i].vz = vz0;
-	  
+	  int offset = ((n_out+n)*n_particles+j)*6;	  
+	  outstate[offset+3] = vx0;
+	  outstate[offset+4] = vy0;	  	  
+	  outstate[offset+5] = vz0;
+
 	}
 	
       }
