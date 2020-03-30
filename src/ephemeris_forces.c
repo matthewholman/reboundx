@@ -641,9 +641,10 @@ typedef struct {
 // Gauss Radau spacings
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
-int integration_function(double tstart, double tstep, double trange, int geocentric,
+int integration_function(double tstart, double tstep, double trange,
+			 int geocentric,
 			 int n_particles,
-			 double* xi, double* yi, double* zi, double* vxi, double* vyi, double* vzi,
+			 double* instate,
 			 int* n_out, double* outtime, double* outstate){
 
     void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate);
@@ -658,15 +659,6 @@ int integration_function(double tstart, double tstep, double trange, int geocent
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
     
-    int nsteps = fabs(trange/tstep);
-    int nouts = 8*fabs(trange/tstep);
-
-    double* times = malloc(nouts*sizeof(double));
-
-    for(int i=0; i<=nsteps; i++){
-      times[i] = tstart + i*tstep;
-    }
-
     struct rebx_extras* rebx = rebx_attach(r);
 
     // Also add "ephemeris_forces" 
@@ -692,12 +684,12 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 
 	struct reb_particle tp = {0};
 
-	tp.x  =  xi[i];
-	tp.y  =  yi[i];
-	tp.z  =  zi[i];
-	tp.vx =  vxi[i];
-	tp.vy =  vyi[i];
-	tp.vz =  vzi[i];
+	tp.x  =  instate[6*i+0];
+	tp.y  =  instate[6*i+1];
+	tp.z  =  instate[6*i+2];
+	tp.vx =  instate[6*i+3];
+	tp.vy =  instate[6*i+4];
+	tp.vz =  instate[6*i+5];
     
 	reb_add(r, tp);
     }
@@ -705,7 +697,6 @@ int integration_function(double tstart, double tstep, double trange, int geocent
     int N = r->N;
     
     r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
-    //tmax  = r->t + trange;
     r->dt = tstep;    // time step in days
 
     outtime[0] = r->t;	
@@ -722,11 +713,17 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 	
     tstate last[n_particles];
 
-    reb_integrate(r, times[0]);
-    reb_update_acceleration(r); // This should not be needed but is.
+    //reb_integrate(r, times[0]); // Not sure this is needed.
+    reb_update_acceleration(r); // This is needed to save the acceleration.
+ 
+    int nsteps = fabs(trange/tstep);
+    double tmax = tstart+trange;
+    int i = 1;
+    const double dtsign = copysign(1.,r->dt);   // Used to determine integration direction
 
-    for(int i=1; i<=nsteps; i++){
+    while((r->t)*dtsign<tmax*dtsign){ 
 
+	// This could be a helper function
 	for(int j=0; j<N; j++){
 	    last[j].t = r->t;	
 	    last[j].x = r->particles[j].x;
@@ -740,16 +737,18 @@ int integration_function(double tstart, double tstep, double trange, int geocent
 	    last[j].az = r->particles[j].az;
 	}
 
-	//reb_integrate(r, times[j]);
 	reb_step(r);
+
 	store_function(r, 8*(i-1), n_particles, last, outtime, outstate);
-	reb_update_acceleration(r);
+	reb_update_acceleration(r); // This is needed to save the acceleration.
+
+	i++;
 
     }
-    
-    *n_out = nsteps*8;
 
-    free(times);
+    nsteps = i;
+    
+    *n_out = (nsteps-1)*8;
 
     rebx_free(rebx);    // this explicitly frees all the memory allocated by REBOUNDx 
     reb_free_simulation(r);
