@@ -600,12 +600,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     }
 
-    /*
-    for (int j=0; j<N; j++){
-	printf("acc %lf %le %le %le\n", t, particles[j].ax, particles[j].ay, particles[j].az);
-    }
-    */
-
 }
 
 /**
@@ -690,7 +684,7 @@ int integration_function(double tstart, double tstep, double trange,
 	tp.vx =  instate[6*i+3];
 	tp.vy =  instate[6*i+4];
 	tp.vz =  instate[6*i+5];
-    
+
 	reb_add(r, tp);
     }
 

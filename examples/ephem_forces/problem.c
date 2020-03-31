@@ -27,8 +27,8 @@ int main(int argc, char* argv[]){
 
     // Read ICs & integration params from file
     double tstart, tstep, trange;
-    double *xi, *yi, *zi;
-    double *vxi, *vyi, *vzi;
+    //double *xi, *yi, *zi;
+    //double *vxi, *vyi, *vzi;
     int geocentric;
     int n_particles;
 
