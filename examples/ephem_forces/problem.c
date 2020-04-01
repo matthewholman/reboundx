@@ -11,7 +11,10 @@ typedef struct {
 } tstate;
 
 typedef struct {
+    double* t;
     double* state;
+    int n_out;
+    int n_particles;
 } timestate;
 
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
@@ -20,6 +23,8 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 		 int *n_particles);
 
 int main(int argc, char* argv[]){
+
+    timestate ts;
 
     double *instate;    
     double* outstate;
@@ -41,18 +46,18 @@ int main(int argc, char* argv[]){
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
 			     int n_particles,
-			     double *instate,
-			     int *nout,
-			     double **t,
-			     double **ts);
+			     double* instate,
+			     timestate *ts);
     
     integration_function(tstart, tstep, trange,
 			 geocentric,
 			 n_particles,
 			 instate,
-			 &n_out,
-			 &outtime,
-			 &outstate);
+			 &ts);
+
+    n_out = ts.n_out;
+    outtime = ts.t;
+    outstate = ts.state;
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");

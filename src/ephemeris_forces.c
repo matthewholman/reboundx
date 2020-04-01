@@ -635,6 +635,8 @@ typedef struct {
 typedef struct {
     double* t;
     double* state;
+    int n_out;
+    int n_particles;
 } timestate;
 
 // Gauss Radau spacings
@@ -644,9 +646,7 @@ int integration_function(double tstart, double tstep, double trange,
 			 int geocentric,
 			 int n_particles,
 			 double* instate,
-			 int* nout,
-			 double **t,
-			 double **ts){
+			 timestate *ts){
 
     void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate);
     struct reb_simulation* r = reb_create_simulation();
@@ -717,7 +717,7 @@ int integration_function(double tstart, double tstep, double trange,
 	outstate[offset+4] = r->particles[j].vy;
 	outstate[offset+5] = r->particles[j].vz;
     }
-	
+
     tstate last[n_particles];
 
     //reb_integrate(r, times[0]); // Not sure this is needed.
@@ -752,13 +752,16 @@ int integration_function(double tstart, double tstep, double trange,
 
     }
 
-    //ts->t = outtime;
-    *t = outtime;
-    *ts = outstate;
-    *nout = (i-1)*8;
+    ts->t = outtime;
+    ts->state = outstate;
+    ts->n_particles = n_particles;
+    ts->n_out = (i-1)*8;
+    //*nout =  n_out;
+
 
     rebx_free(rebx);    // this explicitly frees all the memory allocated by REBOUNDx 
     reb_free_simulation(r);
+
 
     return(1);
 }

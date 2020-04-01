@@ -8,13 +8,9 @@ n_particles = 5
 instates = np.array([3.338876057509365E+00, -9.176517956664152E-01, -5.038590450387491E-01,
                      2.805663678557796E-03, 7.550408259144305E-03, 2.980028369986096E-03]*n_particles)
 
-times, states, nout = ephem_forces.integration_function(tstart, tstep, trange, geocentric,
-                                                        n_particles,
-                                                        instates)
+times, states, n_out, n_particles = ephem_forces.integration_function(tstart, tstep, trange, geocentric, n_particles, instates)
 
 
-#states = states.reshape((-1,n_particles,6))[0:nout]
-#times = times[0:nout]
 
 
 
