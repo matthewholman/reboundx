@@ -632,6 +632,11 @@ typedef struct {
   double t, x, y, z, vx, vy, vz, ax, ay, az;
 } tstate;
 
+typedef struct {
+    double* t;
+    double* state;
+} timestate;
+
 // Gauss Radau spacings
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
@@ -639,7 +644,9 @@ int integration_function(double tstart, double tstep, double trange,
 			 int geocentric,
 			 int n_particles,
 			 double* instate,
-			 int* n_out, double* outtime, double* outstate){
+			 int* nout,
+			 double **t,
+			 double **ts){
 
     void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate);
     struct reb_simulation* r = reb_create_simulation();
@@ -670,6 +677,12 @@ int integration_function(double tstart, double tstep, double trange,
     // Set speed of light in right units (set by G & initial conditions).
     // Here we use default units of AU/(yr/2pi)
     rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
+
+    int fac = 5;
+    int n_out = (int)fac*8*fabs(trange/tstep);
+    
+    double* outstate = (double *) malloc(n_out*n_particles*6*sizeof(double));
+    double* outtime  = (double *) malloc(n_out*sizeof(double));    
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
     rebx_set_param_pointer(rebx, &ephem_forces->ap, "outstate", outstate);
@@ -710,7 +723,6 @@ int integration_function(double tstart, double tstep, double trange,
     //reb_integrate(r, times[0]); // Not sure this is needed.
     reb_update_acceleration(r); // This is needed to save the acceleration.
  
-    int nsteps = fabs(trange/tstep);
     double tmax = tstart+trange;
     int i = 1;
     const double dtsign = copysign(1.,r->dt);   // Used to determine integration direction
@@ -740,9 +752,10 @@ int integration_function(double tstart, double tstep, double trange,
 
     }
 
-    nsteps = i;
-    
-    *n_out = (nsteps-1)*8;
+    //ts->t = outtime;
+    *t = outtime;
+    *ts = outstate;
+    *nout = (i-1)*8;
 
     rebx_free(rebx);    // this explicitly frees all the memory allocated by REBOUNDx 
     reb_free_simulation(r);
@@ -796,8 +809,8 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 
     }
 
-      // Loop over interval using Gauss-Radau spacings      
-      for(int n=1;n<8;n++) {                          
+    // Loop over interval using Gauss-Radau spacings      
+    for(int n=1;n<8;n++) {                          
 
 	s[0] = r->dt_last_done * h[n];
 
@@ -857,11 +870,10 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	  outstate[offset+5] = vz0;
 
 	}
-	
-      }
+    }
 
-      free(x0);
-      free(v0);
-      free(a0);
+    free(x0);
+    free(v0);
+    free(a0);
 
 }

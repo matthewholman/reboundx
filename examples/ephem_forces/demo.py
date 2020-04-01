@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import ephem_forces
 
-
 tstart, tstep, trange = 2458849.5, 20.0, 500
 geocentric = 0
 n_particles = 5
@@ -13,8 +12,9 @@ times, states, nout = ephem_forces.integration_function(tstart, tstep, trange, g
                                                         n_particles,
                                                         instates)
 
-states = states.reshape((-1,n_particles,6))[0:nout]
-times = times[0:nout]
+
+#states = states.reshape((-1,n_particles,6))[0:nout]
+#times = times[0:nout]
 
 
 

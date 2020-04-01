@@ -10,58 +10,49 @@ typedef struct {
   double t, x, y, z, vx, vy, vz, ax, ay, az;
 } tstate;
 
+typedef struct {
+    double* state;
+} timestate;
+
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
-		 int* geocentric,
-		 double* instate,
-		 int* n_particles);
+		 int *geocentric,
+		 double **instate,
+		 int *n_particles);
 
 int main(int argc, char* argv[]){
 
-    // Need to clean this up to make the array size
-    // dynamic.
-    double* instate = malloc(100000*6*sizeof(double));
-    double* outstate = malloc(100000*6*sizeof(double));
-    double* outtime  = malloc(100000*1*sizeof(double));    
+    double *instate;    
+    double* outstate;
+    double* outtime;
     
     int n_out;
 
     // Read ICs & integration params from file
     double tstart, tstep, trange;
-    //double *xi, *yi, *zi;
-    //double *vxi, *vyi, *vzi;
     int geocentric;
     int n_particles;
 
-    //harcoded allocation for max particles
-    /*
-    xi = (double*)calloc(1000, sizeof(double));
-    yi = (double*)calloc(1000, sizeof(double));
-    zi = (double*)calloc(1000, sizeof(double));
-    vxi = (double*)calloc(1000, sizeof(double));
-    vyi = (double*)calloc(1000, sizeof(double));
-    vzi = (double*)calloc(1000, sizeof(double));
-    */
-
     if(argc >=2){
-	read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, instate, &n_particles);
+	read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
     }else{
-	read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, instate, &n_particles);
+	read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
     }
-
-    //deallocate unused space
-    instate = realloc(instate, n_particles*6*sizeof(double));
 
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
 			     int n_particles,
-			     double* instate,
-			     int* n_out, double* outtime, double* outstate);
+			     double *instate,
+			     int *nout,
+			     double **t,
+			     double **ts);
     
     integration_function(tstart, tstep, trange,
 			 geocentric,
 			 n_particles,
 			 instate,
-			 &n_out, outtime, outstate);
+			 &n_out,
+			 &outtime,
+			 &outstate);
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
@@ -83,13 +74,16 @@ int main(int argc, char* argv[]){
 
 void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
 		 int* geocentric, 
-		 double* instate,
+		 double **instate,
 		 int* n_particles){
 
      char label[100]; /* hardwired for length */
      FILE* fp;
 
      int np = 0;
+
+     int n_allocated = 1;
+     double* state = malloc(n_allocated*6*sizeof(double)); // Clean this up.
      
      if((fp = fopen(filename, "r")) != NULL){
 
@@ -103,16 +97,27 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
         } else if(!strcmp(label, "geocentric")){
          fscanf(fp, "%d", geocentric);
         } else if(!strcmp(label, "state")){
-         fscanf(fp, "%lf%lf%lf", &instate[6*np+0], &instate[6*np+1], &instate[6*np+2]);
-         fscanf(fp, "%lf%lf%lf", &instate[6*np+3], &instate[6*np+4], &instate[6*np+5]);	 
+         fscanf(fp, "%lf%lf%lf", &state[6*np+0], &state[6*np+1], &state[6*np+2]);
+         fscanf(fp, "%lf%lf%lf", &state[6*np+3], &state[6*np+4], &state[6*np+5]);	 
          np++;
+
+	 // Resize the array, if needed.
+	 if(np==n_allocated){
+	     n_allocated *= 2;
+	     state = realloc(state, n_allocated*6*sizeof(double));
+	 }
+	 
         } else {
          printf("No label: %s\n", label);
          exit(EXIT_FAILURE);
         }
       }
 
-     *n_particles = np;
+      //deallocate unused space
+      state = realloc(state, np*6*sizeof(double));
+
+      *n_particles = np;
+      *instate = state;      
       
       fclose(fp);
 
