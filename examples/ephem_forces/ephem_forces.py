@@ -1,3 +1,12 @@
+"""This is a python wrapper to an ephemeris-quality integrator function.
+
+This wrapper uses ctypes to access a reboundx c library that contains an
+extension for carrying out highly accurate integrations of test
+particles moving in the field of the sun, planets, moon, and massive
+asteroids, with positions and velocities supplied by JPL ephemeris 
+files.  
+"""
+
 from ctypes import *
 import numpy as np
 
