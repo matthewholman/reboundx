@@ -17,7 +17,7 @@ typedef struct {
     int n_particles;
 } timestate;
 
-void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
+void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
 		 int *geocentric,
 		 double **instate,
 		 int *n_particles);
@@ -33,14 +33,14 @@ int main(int argc, char* argv[]){
     int n_out;
 
     // Read ICs & integration params from file
-    double tstart, tstep, trange;
+    double tepoch, tstart, tstep, trange;
     int geocentric;
     int n_particles;
 
     if(argc >=2){
-	read_inputs(argv[1], &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
+	read_inputs(argv[1], &tepoch, &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
     }else{
-	read_inputs("initial_conditions.txt", &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
+	read_inputs("initial_conditions.txt", &tepoch, &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
     }
 
     int integration_function(double tstart, double tstep, double trange,
@@ -48,36 +48,88 @@ int main(int argc, char* argv[]){
 			     int n_particles,
 			     double* instate,
 			     timestate *ts);
-    
-    integration_function(tstart, tstep, trange,
-			 geocentric,
-			 n_particles,
-			 instate,
-			 &ts);
-
-    n_out = ts.n_out;
-    outtime = ts.t;
-    outstate = ts.state;
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
+    
+    if(tstart >= tepoch){
+     integration_function(tepoch, tstep, trange+tstart-tepoch,
+     //integration_function(tstart, tstep, trange,
+      			  geocentric,
+			  n_particles,
+			  instate,
+			  &ts);
 
-    for(int i=0; i<n_out; i++){
-	for(int j=0; j<n_particles; j++){
-	    fprintf(g,"%lf ", outtime[i]);
-	    fprintf(g,"%d ", j);
-	    int offset = (i*n_particles+j)*6;
-	    for(int k=0; k<6; k++){
-		fprintf(g,"%16.8e ", outstate[offset+k]);
+     n_out = ts.n_out;
+     outtime = ts.t;
+     outstate = ts.state;
+
+     for(int i=0; i<n_out; i++){
+	 for(int j=0; j<n_particles; j++){
+	     fprintf(g,"%lf ", outtime[i]);
+	     fprintf(g,"%d ", j);
+	     int offset = (i*n_particles+j)*6;
+	     for(int k=0; k<6; k++){
+		 fprintf(g,"%16.8e ", outstate[offset+k]);
+	     }
+	     fprintf(g,"\n");
+	 }
+     }
+     
+    }else{
+
+	integration_function(tepoch, -tstep, tstart-tepoch,
+      			  geocentric,
+			  n_particles,
+			  instate,
+			  &ts);
+
+	n_out = ts.n_out;
+	outtime = ts.t;
+	outstate = ts.state;
+	
+	for(int i=n_out-1; i>0; i--){
+	    for(int j=0; j<n_particles; j++){
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%d ", j);
+		int offset = (i*n_particles+j)*6;
+		for(int k=0; k<6; k++){
+		    fprintf(g,"%16.8e ", outstate[offset+k]);
+		}
+		fprintf(g,"\n");
 	    }
-	    fprintf(g,"\n");
 	}
+
+	integration_function(tepoch, tstep, trange+tstart-tepoch,
+			     geocentric,
+			     n_particles,
+			     instate,
+			     &ts);
+
+	n_out = ts.n_out;
+	outtime = ts.t;
+	outstate = ts.state;
+	
+	for(int i=0; i<n_out; i++){
+	    for(int j=0; j<n_particles; j++){
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%d ", j);
+		int offset = (i*n_particles+j)*6;
+		for(int k=0; k<6; k++){
+		    fprintf(g,"%16.8e ", outstate[offset+k]);
+		}
+		fprintf(g,"\n");
+	    }
+	}
+	
     }
+
+
     fclose(g);    
 
 }
 
-void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
+void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
 		 int* geocentric, 
 		 double **instate,
 		 int* n_particles){
@@ -93,8 +145,10 @@ void read_inputs(char *filename, double* tstart, double* tstep, double* trange,
      if((fp = fopen(filename, "r")) != NULL){
 
       while(fscanf(fp, "%s", label) != EOF){
-        if(!strcmp(label, "tstart")){
-	  fscanf(fp, "%lf", tstart);     
+        if(!strcmp(label, "tepoch")){
+	  fscanf(fp, "%lf", tepoch);     
+        } else if(!strcmp(label, "tstart")){
+          fscanf(fp, "%lf", tstart);
         } else if(!strcmp(label, "tstep")){
 	  fscanf(fp, "%lf", tstep);
         } else if(!strcmp(label, "trange")){

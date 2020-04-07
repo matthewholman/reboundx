@@ -16,7 +16,6 @@
  *
  * Contributors:
  *
- *
  * Robert Weryk <weryk@hawaii.edu>
  * Daniel Tamayo <dtamayo@astro.princeton.edu>
  * Matthew Payne <mpayne@cfa.harvard.edu>
@@ -82,12 +81,11 @@ int ebody[11] = {
         PLAN_PLU
 };
 
-
 // Added gravitational constant G (2020 Feb 26)
 // Added vx, vy, vz for GR stuff (2020 Feb 27)
 // Consolidated the routine, removing the if block.
 //
-void ephem(const double G, const int i, const double jde, double* const m,
+void ephem(const int i, const double jde, double* const GM,
 	   double* const x, double* const y, double* const z,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az){
@@ -97,7 +95,22 @@ void ephem(const double G, const int i, const double jde, double* const m,
     static struct _jpl_s *pl;
     struct mpos_s now;
 
-    static double M[11];
+    // The values below are G*mass.
+    // Units are solar masses, au, days.
+    const static double JPL_GM[11] =
+	{
+	    0.295912208285591100E-03, // 0  sun  
+	    0.491248045036476000E-10, // 1  mercury
+	    0.724345233264412000E-09, // 2  venus
+	    0.888769244512563400E-09, // 3  earth
+	    0.109318945074237400E-10, // 4  moon
+	    0.954954869555077000E-10, // 5  mars
+	    0.282534584083387000E-06, // 6  jupiter
+	    0.845970607324503000E-07, // 7  saturn
+	    0.129202482578296000E-07, // 8  uranus
+	    0.152435734788511000E-07, // 9  neptune
+	    0.217844105197418000E-11, // 10 pluto
+	};
 
     if(i<0 || i>10){
       fprintf(stderr, "body out of range\n");
@@ -111,34 +124,14 @@ void ephem(const double G, const int i, const double jde, double* const m,
 	exit(EXIT_FAILURE);
       }
 
-      // The values below are G*mass, so we need to divide by G.
-      // Units are solar masses, au, days.
-      const static double JPL_GM[11] =
-	{
-	  0.295912208285591100E-03, // 0  sun  
-	  0.491248045036476000E-10, // 1  mercury
-	  0.724345233264412000E-09, // 2  venus
-	  0.888769244512563400E-09, // 3  earth
-	  0.109318945074237400E-10, // 4  moon
-	  0.954954869555077000E-10, // 5  mars
-	  0.282534584083387000E-06, // 6  jupiter
-	  0.845970607324503000E-07, // 7  saturn
-	  0.129202482578296000E-07, // 8  uranus
-	  0.152435734788511000E-07, // 9  neptune
-	  0.217844105197418000E-11, // 10 pluto
-	};
 
-      for(int k=0; k<11; k++){
-	M[k] = JPL_GM[k]/G;
-      }
-      
       initialized = 1;
 
     }
 
     // Get position, velocity, and mass of body i in barycentric coords. 
     
-    *m = M[i];
+    *GM = JPL_GM[i];
 
     jpl_calc(pl, &now, jde, ebody[i], PLAN_BAR); 
 
@@ -159,14 +152,39 @@ void ephem(const double G, const int i, const double jde, double* const m,
     
 }
 
-static void ast_ephem(const double G, const int i, const double jde, double* const m, double* const x, double* const y, double* const z){
+static void ast_ephem(const int i, const double jde, double* const GM, double* const x, double* const y, double* const z){
 
     static int initialized = 0;
 
     static struct spk_s *spl;
     struct mpos_s pos;
 
-    static double M[16];    
+    // 1 Ceres, 4 Vesta, 2 Pallas, 10 Hygiea, 31 Euphrosyne, 704 Interamnia,
+    // 511 Davida, 15 Eunomia, 3 Juno, 16 Psyche, 65 Cybele, 88 Thisbe, 
+    // 48 Doris, 52 Europa, 451 Patientia, 87 Sylvia
+
+    // The values below are G*mass.
+    // Units are solar masses, au, days.      
+    const static double JPL_GM[16] =
+	{
+	    1.400476556172344e-13, // ceres
+	    3.854750187808810e-14, // vesta
+	    3.104448198938713e-14, // pallas
+	    1.235800787294125e-14, // hygiea
+	    6.343280473648602e-15, // euphrosyne
+	    5.256168678493662e-15, // interamnia
+	    5.198126979457498e-15, // davida
+	    4.678307418350905e-15, // eunomia
+	    3.617538317147937e-15, // juno
+	    3.411586826193812e-15, // psyche
+	    3.180659282652541e-15, // cybele
+	    2.577114127311047e-15, // thisbe
+	    2.531091726015068e-15, // doris
+	    2.476788101255867e-15, // europa
+	    2.295559390637462e-15, // patientia
+	    2.199295173574073e-15, // sylvia
+	};
+    
 
     if(i<0 || i>15){
       fprintf(stderr, "asteroid out of range\n");
@@ -180,41 +198,12 @@ static void ast_ephem(const double G, const int i, const double jde, double* con
 	exit(EXIT_FAILURE);
       }
 
-      // 1 Ceres, 4 Vesta, 2 Pallas, 10 Hygiea, 31 Euphrosyne, 704 Interamnia,
-      // 511 Davida, 15 Eunomia, 3 Juno, 16 Psyche, 65 Cybele, 88 Thisbe, 
-      // 48 Doris, 52 Europa, 451 Patientia, 87 Sylvia
-
-      // The values below are G*mass, so we need to divide by G.
-      // Units are solar masses, au, days.      
-      const static double JPL_GM[16] =
-	{
-	  1.400476556172344e-13, // ceres
-	  3.854750187808810e-14, // vesta
-	  3.104448198938713e-14, // pallas
-	  1.235800787294125e-14, // hygiea
-	  6.343280473648602e-15, // euphrosyne
-	  5.256168678493662e-15, // interamnia
-	  5.198126979457498e-15, // davida
-	  4.678307418350905e-15, // eunomia
-	  3.617538317147937e-15, // juno
-	  3.411586826193812e-15, // psyche
-	  3.180659282652541e-15, // cybele
-	  2.577114127311047e-15, // thisbe
-	  2.531091726015068e-15, // doris
-	  2.476788101255867e-15, // europa
-	  2.295559390637462e-15, // patientia
-	  2.199295173574073e-15, // sylvia
-	};
-      
-      for(int k=0; k<16; k++){
-	M[k] = JPL_GM[i]/ G;
-      }
       
       initialized = 1;
 
     }
 
-    *m = M[i];
+    *GM = JPL_GM[i];
     spk_calc(spl, i, jde, &pos);          
     *x = pos.u[0];
     *y = pos.u[1];
@@ -253,7 +242,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     const double C2 = (*c)*(*c);  // This could be stored as C2.
     
-    double m, x, y, z, vx, vy, vz, ax, ay, az;
+    double GM;
+    double x, y, z, vx, vy, vz, ax, ay, az;
     double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
     double xe, ye, ze, vxe, vye, vze, axe, aye, aze;
     double xo, yo, zo, vxo, vyo, vzo;
@@ -261,8 +251,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Get mass, position, velocity, and acceleration of the Earth and Sun
     // for later use
-    ephem(G, 3, t, &m, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
-    ephem(G, 0, t, &m, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);     
+    ephem(3, t, &GM, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
+    ephem(0, t, &GM, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);     
 
     // The offset position is used to adjust the particle positions.
     if(*geo == 1){
@@ -278,7 +268,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     for (int i=0; i<*N_ephem; i++){
 
         // Get position and mass of massive body i.
-        ephem(G, i, t, &m, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+        ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
         for (int j=0; j<N; j++){
   	  // Compute position vector of test particle j relative to massive body i.
@@ -286,7 +276,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	  const double dy =  particles[j].y + (yo - y);
 	  const double dz =  particles[j].z + (zo - z);
 	  const double _r = sqrt(dx*dx + dy*dy + dz*dz);
-	  const double prefac = G*m/(_r*_r*_r);
+	  const double prefac = GM/(_r*_r*_r);
 
 	  //printf("%le %le %le\n", dx, dy, dz);
 	  
@@ -301,7 +291,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Rearrange to get all the asteroid positions at once
     for (int i=0; i<*N_ast; i++){
 
-        ast_ephem(G, i, t, &m, &x, &y, &z); // Get position and mass of asteroid i.
+        ast_ephem(i, t, &GM, &x, &y, &z); // Get position and mass of asteroid i.
 
 	// Translate massive asteroids from heliocentric to barycentric.
 	x += xs; y += ys; z += zs;
@@ -313,7 +303,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	    const double dz = particles[j].z + (zo - z); 	    	    
             const double _r = sqrt(dx*dx + dy*dy + dz*dz);
 	    
-            const double prefac = G*m/(_r*_r*_r);
+            const double prefac = GM/(_r*_r*_r);
             particles[j].ax -= prefac*dx;
             particles[j].ay -= prefac*dy;
             particles[j].az -= prefac*dz;
@@ -333,7 +323,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Hard-coded constants.  BEWARE!
     // Clean up on aisle 3!
-    const double Mearth = 0.888769244512563400E-09/G;
+    const double GMearth = 0.888769244512563400E-09;
     const double J2e = 0.00108262545*1.001;
     const double J4e = -0.000001616;
     const double au = 149597870.700;
@@ -402,16 +392,16 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         const double J2e_prefac = 3.*J2e*Re_eq*Re_eq/r2/r2/r/2.;
         const double J2e_fac = 5.*costheta2-1.;
 
-	double resx = G*Mearth*J2e_prefac*J2e_fac*dx;
-	double resy = G*Mearth*J2e_prefac*J2e_fac*dy;
-	double resz = G*Mearth*J2e_prefac*(J2e_fac-2.)*dz;	
+	double resx = GMearth*J2e_prefac*J2e_fac*dx;
+	double resy = GMearth*J2e_prefac*J2e_fac*dy;
+	double resz = GMearth*J2e_prefac*(J2e_fac-2.)*dz;	
 
         const double J4e_prefac = 5.*J4e*Re_eq*Re_eq*Re_eq*Re_eq/r2/r2/r2/r/8.;
         const double J4e_fac = 63.*costheta2*costheta2-42.*costheta2 + 3.;
 
-        resx += G*Mearth*J4e_prefac*J4e_fac*dx;
-        resy += G*Mearth*J4e_prefac*J4e_fac*dy;
-        resz += G*Mearth*J4e_prefac*(J4e_fac+12.-28.*costheta2)*dz;
+        resx += GMearth*J4e_prefac*J4e_fac*dx;
+        resy += GMearth*J4e_prefac*J4e_fac*dy;
+        resz += GMearth*J4e_prefac*(J4e_fac+12.-28.*costheta2)*dz;
 
 	// Rotate back to original frame
 	// Rotate around x by -Dec

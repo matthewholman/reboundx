@@ -608,7 +608,7 @@ void rebx_error(struct rebx_extras* rebx, const char* const msg);
  * @param Pointer ay double returned y acceleration of body i.
  * @param Pointer az double returned z acceleration of body i.
  */
-void ephem(const double G, const int i, const double t, double* const m,
+void ephem(const int i, const double t, double* const GM,
 	   double* const x, double* const y, double* const z,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az);

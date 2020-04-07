@@ -1,4 +1,5 @@
-tstart 2458849.5
+tepoch 2458849.5
+tstart 2458749.5
 tstep 20.0
 trange 500.
 geocentric 0
