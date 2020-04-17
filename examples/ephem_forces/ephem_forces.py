@@ -9,8 +9,9 @@ files.
 
 from ctypes import *
 import numpy as np
+from os import path as osp
 
-rebx_location = '/Users/mholman/reboundx/examples/ephem_forces/libreboundx.so'
+rebx_location = osp.join(osp.dirname(osp.realpath(__file__)), 'libreboundx.so')
 rebx_lib = CDLL(rebx_location)
 
 class TimeState(Structure):
