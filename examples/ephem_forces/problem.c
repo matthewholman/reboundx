@@ -25,6 +25,7 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
 int main(int argc, char* argv[]){
 
     timestate ts;
+    timestate* tsp= (timestate*)malloc(sizeof(timestate));
 
     double *instate;    
     double* outstate;
@@ -57,18 +58,18 @@ int main(int argc, char* argv[]){
      //integration_function(tstart, tstep, trange,
       			  geocentric,
 			  n_particles,
-			  instate,
-			  &ts);
+			  instate,             //ICs in instate correpond to tepoch
+			  tsp);
 
-     n_out = ts.n_out;
-     outtime = ts.t;
-     outstate = ts.state;
+     n_out = tsp->n_out;
+     outtime = tsp->t;
+     outstate = tsp->state;
 
      for(int i=0; i<n_out; i++){
-	 for(int j=0; j<n_particles; j++){
+	 for(int j=0; j<2*n_particles; j++){ //XYZ
 	     fprintf(g,"%lf ", outtime[i]);
 	     fprintf(g,"%d ", j);
-	     int offset = (i*n_particles+j)*6;
+	     int offset = (i*2*n_particles+j)*6; //XYZ
 	     for(int k=0; k<6; k++){
 		 fprintf(g,"%16.8e ", outstate[offset+k]);
 	     }
@@ -81,7 +82,7 @@ int main(int argc, char* argv[]){
 	integration_function(tepoch, -tstep, tstart-tepoch,
       			  geocentric,
 			  n_particles,
-			  instate,
+			  instate,            //IC for tepoch!
 			  &ts);
 
 	n_out = ts.n_out;
@@ -89,10 +90,10 @@ int main(int argc, char* argv[]){
 	outstate = ts.state;
 	
 	for(int i=n_out-1; i>0; i--){
-	    for(int j=0; j<n_particles; j++){
+	    for(int j=0; j<2*n_particles; j++){ //XYZ
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%d ", j);
-		int offset = (i*n_particles+j)*6;
+		int offset = (i*2*n_particles+j)*6; //XYZ
 		for(int k=0; k<6; k++){
 		    fprintf(g,"%16.8e ", outstate[offset+k]);
 		}
@@ -111,10 +112,10 @@ int main(int argc, char* argv[]){
 	outstate = ts.state;
 	
 	for(int i=0; i<n_out; i++){
-	    for(int j=0; j<n_particles; j++){
+	    for(int j=0; j<2*n_particles; j++){ //XYZ
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%d ", j);
-		int offset = (i*n_particles+j)*6;
+		int offset = (i*2*n_particles+j)*6; //XYZ
 		for(int k=0; k<6; k++){
 		    fprintf(g,"%16.8e ", outstate[offset+k]);
 		}

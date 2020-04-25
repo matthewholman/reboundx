@@ -215,6 +215,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     const double G = sim->G;
     const double t = sim->t;
+    const int N_var = sim->N_var;
+    const int N_real= N;
+//  const int N_var = sim->N - N;   //The N passed in is the number of real particles (sim->N - sim->N_var).
 
     const int* const N_ephem = rebx_get_param(sim->extras, force->ap, "N_ephem");
     if (N_ephem == NULL){
@@ -287,6 +290,128 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
+    // Calculate acceleration of variational particles due to sun and planets
+    /* insert variational calculation here */
+    for (int i=0; i<*N_ephem; i++){
+
+        ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+
+        for (int j=0; j<N_real; j++){ //loop over test particles
+          for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
+
+             const double dx = particles[j].x + (xo - x);
+             const double dy = particles[j].y + (yo - y);
+             const double dz = particles[j].z + (zo - z);
+             const double r2 = dx*dx + dy*dy + dz*dz;
+             const double _r  = sqrt(r2);
+             const double r3inv = 1./(r2*_r);
+             const double r5inv = 3.*r3inv/r2;
+             const double ddx = particles[v].x;
+             const double ddy = particles[v].y;
+             const double ddz = particles[v].z;
+             const double Gmi = GM;
+
+             // Variational equations
+             const double dxdx = dx*dx*r5inv - r3inv;
+             const double dydy = dy*dy*r5inv - r3inv;
+             const double dzdz = dz*dz*r5inv - r3inv;
+             const double dxdy = dx*dy*r5inv;
+             const double dxdz = dx*dz*r5inv;
+             const double dydz = dy*dz*r5inv;
+             const double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+             const double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+             const double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+
+             // No variational mass contributions for test particles!
+
+             particles[v].ax += Gmi * dax; 
+             particles[v].ay += Gmi * day; 
+             particles[v].az += Gmi * daz; 
+
+//printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
+          }
+        }
+    }
+
+/*
+
+                    //////////////////
+                    /// 2nd order  ///
+                    //////////////////
+                    struct reb_particle* const particles_var2 = particles + vc.index;
+                    struct reb_particle* const particles_var1a = particles + vc.index_1st_order_a;
+                    struct reb_particle* const particles_var1b = particles + vc.index_1st_order_b;
+
+                    }else{ //testparticle
+                        int i = vc.testparticle;
+                        particles_var2[0].ax = 0.;
+                        particles_var2[0].ay = 0.;
+                        particles_var2[0].az = 0.;
+                        for (int j=0; j<_N_real; j++){
+                            if (i==j) continue;
+                            // TODO: Need to implement WH skipping
+                            //if (_gravity_ignore_terms==1 && ((j==1 && i==0) || (i==1 && j==0))) continue;
+                            //if (_gravity_ignore_terms==2 && ((j==0 || i==0))) continue;
+                            const double dx = particles[i].x - particles[j].x;
+                            const double dy = particles[i].y - particles[j].y;
+                            const double dz = particles[i].z - particles[j].z;
+                            const double r2 = dx*dx + dy*dy + dz*dz;
+                            const double r  = sqrt(r2);
+                            const double r3inv = 1./(r2*r);
+                            const double r5inv = r3inv/r2;
+                            const double r7inv = r5inv/r2;
+                            const double ddx = particles_var2[0].x;
+                            const double ddy = particles_var2[0].y;
+                            const double ddz = particles_var2[0].z;
+                            const double Gmj = G * particles[j].m;
+
+                            // Variational equations
+                            // delta^(2) terms
+                            double dax =         ddx * ( 3.*dx*dx*r5inv - r3inv )
+                                       + ddy * ( 3.*dx*dy*r5inv )
+                                       + ddz * ( 3.*dx*dz*r5inv );
+                            double day =         ddx * ( 3.*dy*dx*r5inv )
+                                       + ddy * ( 3.*dy*dy*r5inv - r3inv )
+                                       + ddz * ( 3.*dy*dz*r5inv );
+                            double daz =         ddx * ( 3.*dz*dx*r5inv )
+                                       + ddy * ( 3.*dz*dy*r5inv )
+                                       + ddz * ( 3.*dz*dz*r5inv - r3inv );
+
+
+                            // delta^(1) delta^(1) terms
+                            const double dk1dx = particles_var1a[0].x;
+                            const double dk1dy = particles_var1a[0].y;
+                            const double dk1dz = particles_var1a[0].z;
+                            const double dk2dx = particles_var1b[0].x;
+                            const double dk2dy = particles_var1b[0].y;
+                            const double dk2dz = particles_var1b[0].z;
+
+                            const double rdk1 =  dx*dk1dx + dy*dk1dy + dz*dk1dz;
+                            const double rdk2 =  dx*dk2dx + dy*dk2dy + dz*dk2dz;
+                            const double dk1dk2 =  dk1dx*dk2dx + dk1dy*dk2dy + dk1dz*dk2dz;
+                            dax     +=        3.* r5inv * dk2dx * rdk1
+                                    + 3.* r5inv * dk1dx * rdk2
+                                    + 3.* r5inv    * dx * dk1dk2
+                                        - 15.      * dx * r7inv * rdk1 * rdk2;
+                            day     +=        3.* r5inv * dk2dy * rdk1
+                                    + 3.* r5inv * dk1dy * rdk2
+                                    + 3.* r5inv    * dy * dk1dk2
+                                        - 15.      * dy * r7inv * rdk1 * rdk2;
+                            daz     +=        3.* r5inv * dk2dz * rdk1
+                                    + 3.* r5inv * dk1dz * rdk2
+                                    + 3.* r5inv    * dz * dk1dk2
+                                        - 15.      * dz * r7inv * rdk1 * rdk2;
+
+                            // No variational mass contributions for test particles!
+
+                            particles_var2[0].ax += Gmj * dax;
+                            particles_var2[0].ay += Gmj * day;
+                            particles_var2[0].az += Gmj * daz;
+                        }
+                    }
+
+*/
+
     // Calculate acceleration due to massive asteroids
     // Rearrange to get all the asteroid positions at once
     for (int i=0; i<*N_ast; i++){
@@ -307,6 +432,49 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
             particles[j].ax -= prefac*dx;
             particles[j].ay -= prefac*dy;
             particles[j].az -= prefac*dz;
+        }
+    }
+
+    // Calculate acceleration of variational particles due to massive asteroids
+    /* insert variational calculation here */
+    for (int i=0; i<*N_ast; i++){
+
+        ast_ephem(i, t, &GM, &x, &y, &z); 
+
+        for (int j=0; j<N_real; j++){ //loop over test particles
+          for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
+
+             const double dx = particles[j].x + (xo - x);
+             const double dy = particles[j].y + (yo - y);
+             const double dz = particles[j].z + (zo - z);
+             const double r2 = dx*dx + dy*dy + dz*dz;
+             const double _r  = sqrt(r2);
+             const double r3inv = 1./(r2*_r);
+             const double r5inv = 3.*r3inv/r2;
+             const double ddx = particles[v].x;
+             const double ddy = particles[v].y;
+             const double ddz = particles[v].z;
+             const double Gmi = GM;
+
+             // Variational equations
+             const double dxdx = dx*dx*r5inv - r3inv;
+             const double dydy = dy*dy*r5inv - r3inv;
+             const double dzdz = dz*dz*r5inv - r3inv;
+             const double dxdy = dx*dy*r5inv;
+             const double dxdz = dx*dz*r5inv;
+             const double dydz = dy*dz*r5inv;
+             const double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+             const double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+             const double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+
+             // No variational mass contributions for test particles!
+
+             particles[v].ax += Gmi * dax; 
+             particles[v].ay += Gmi * day; 
+             particles[v].az += Gmi * daz; 
+
+//printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
+          }
         }
     }
 
@@ -671,7 +839,7 @@ int integration_function(double tstart, double tstep, double trange,
     int fac = 5;
     int n_out = (int)fac*8*fabs(trange/tstep);
     
-    double* outstate = (double *) malloc(n_out*n_particles*6*sizeof(double));
+    double* outstate = (double *) malloc(2*n_out*n_particles*6*sizeof(double)); //XYZ
     double* outtime  = (double *) malloc(n_out*sizeof(double));    
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
@@ -691,14 +859,29 @@ int integration_function(double tstart, double tstep, double trange,
 	reb_add(r, tp);
     }
 
-    int N = r->N;
-    
+    // Add and initialize variational particles
+
+    ts->t = 0;                 //temporary workaround to avoid segfault associated with malloc
+    int var_i;
+    for(int i=0; i<n_particles; i++){
+ 
+        var_i = reb_add_var_1st_order(r, i); // The i corresponds to the index of the testparticle that we vary.
+        r->particles[var_i].x = 1.; // perturbation of x-component test particles.
+        r->particles[var_i].y = 0.; // lines superfluous; all var. particle ICs are zero by default.
+        r->particles[var_i].z = 0.;
+        r->particles[var_i].vx = 0.;
+        r->particles[var_i].vy = 0.;
+        r->particles[var_i].vz = 0.;
+    }
+
+    int N = r->N - r->N_var;
+  
     r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
     r->dt = tstep;    // time step in days
 
     outtime[0] = r->t;	
     
-    for(int j=0; j<N; j++){
+    for(int j=0; j<2*N; j++){ //XYZ
 	int offset = j*6;
 	outstate[offset+0] = r->particles[j].x;
 	outstate[offset+1] = r->particles[j].y;
@@ -708,7 +891,7 @@ int integration_function(double tstart, double tstep, double trange,
 	outstate[offset+5] = r->particles[j].vz;
     }
 
-    tstate last[n_particles];
+    tstate last[2*n_particles]; //XYZ
 
     //reb_integrate(r, times[0]); // Not sure this is needed.
     reb_update_acceleration(r); // This is needed to save the acceleration.
@@ -720,7 +903,7 @@ int integration_function(double tstart, double tstep, double trange,
     while((r->t)*dtsign<tmax*dtsign){ 
 
 	// This could be a helper function
-	for(int j=0; j<N; j++){
+	for(int j=0; j<2*N; j++){ //XYZ
 	    last[j].t = r->t;	
 	    last[j].x = r->particles[j].x;
 	    last[j].y = r->particles[j].y;
@@ -735,12 +918,31 @@ int integration_function(double tstart, double tstep, double trange,
 
 	reb_step(r);
 
-	store_function(r, 8*(i-1), n_particles, last, outtime, outstate);
+//	printf("%lf %lf %lf\n", r->t, r->particles[0].x, r->particles[2].x); //debugging
+
+	store_function(r, 8*(i-1), 2*n_particles, last, outtime, outstate); //XYZ
 	reb_update_acceleration(r); // This is needed to save the acceleration.
+
+/*  
+	for(int i=0; i<n_particles; i++){
+	  var_i = i + n_particles;
+//        printf("%d% lf %lf\n", var_i, r->t, r->particles[var_i].x);
+//        printf("%d% lf \n", var_i, r->t);
+	  printf("%lf, %d, %lf, %lf, %lf, %lf, %lf, %lf\n",
+		r->t, i, r->particles[i].x, r->particles[i].y, r->particles[i].z,
+			r->particles[i].vx, r->particles[i].vy, r->particles[i].vz);
+	  printf("%lf, %d, %lf, %lf, %lf, %lf, %lf, %lf\n",
+		r->t, var_i, r->particles[var_i].x, r->particles[var_i].y, r->particles[var_i].z,
+			r->particles[var_i].vx, r->particles[var_i].vy, r->particles[var_i].vz);
+        }
+*/ 
 
 	i++;
 
     }
+
+// test variational result
+//  printf("final 1st order pos. of testparticle 0: %lf %lf\n",r->particles[0].x+0.001*r->particles[2].x,r->particles[0].y+0.001*r->particles[2].y);
 
     ts->t = outtime;
     ts->state = outstate;
