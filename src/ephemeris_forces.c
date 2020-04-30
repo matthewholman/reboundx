@@ -297,8 +297,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
-          for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
+//        for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
 
+             int v = j + N_real;
              const double dx = particles[j].x + (xo - x);
              const double dy = particles[j].y + (yo - y);
              const double dz = particles[j].z + (zo - z);
@@ -329,7 +330,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
              particles[v].az += Gmi * daz; 
 
 //printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
-          }
+//        }
         }
     }
 
@@ -342,7 +343,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
                     struct reb_particle* const particles_var1a = particles + vc.index_1st_order_a;
                     struct reb_particle* const particles_var1b = particles + vc.index_1st_order_b;
 
-                    }else{ //testparticle
+                     else{ //testparticle
                         int i = vc.testparticle;
                         particles_var2[0].ax = 0.;
                         particles_var2[0].ay = 0.;
@@ -442,8 +443,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         ast_ephem(i, t, &GM, &x, &y, &z); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
-          for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
+//        for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
 
+             int v = j + N_real;
              const double dx = particles[j].x + (xo - x);
              const double dy = particles[j].y + (yo - y);
              const double dz = particles[j].z + (zo - z);
@@ -474,7 +476,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
              particles[v].az += Gmi * daz; 
 
 //printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
-          }
+//        }
         }
     }
 
@@ -626,6 +628,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
 
+        const double r3inv = 1./(r2*r);    //for variational equations
+        const double r5inv = 3.*r3inv/r2;
+
 	// Rotate to solar equatorial frame
 
 	// Rotate around z by RA
@@ -669,6 +674,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].ay += resy;
         particles[j].az += resz;
 	
+       for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
+       }
     }
 
     // Here is the Solar GR treatment
