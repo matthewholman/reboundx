@@ -52,6 +52,8 @@ int main(int argc, char* argv[]){
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
+
+    tsp->t = NULL;
     
     if(tstart >= tepoch){
      integration_function(tepoch, tstep, trange+tstart-tepoch,
@@ -83,11 +85,11 @@ int main(int argc, char* argv[]){
       			  geocentric,
 			  n_particles,
 			  instate,            //IC for tepoch!
-			  &ts);
+			  tsp);
 
-	n_out = ts.n_out;
-	outtime = ts.t;
-	outstate = ts.state;
+	n_out = tsp->n_out;
+	outtime = tsp->t;
+	outstate = tsp->state;
 	
 	for(int i=n_out-1; i>0; i--){
 	    for(int j=0; j<2*n_particles; j++){ //XYZ
@@ -107,10 +109,10 @@ int main(int argc, char* argv[]){
 			     instate,
 			     &ts);
 
-	n_out = ts.n_out;
-	outtime = ts.t;
-	outstate = ts.state;
-	
+	n_out = tsp->n_out;
+	outtime = tsp->t;
+	outstate = tsp->state;
+
 	for(int i=0; i<n_out; i++){
 	    for(int j=0; j<2*n_particles; j++){ //XYZ
 		fprintf(g,"%lf ", outtime[i]);

@@ -861,7 +861,7 @@ int integration_function(double tstart, double tstep, double trange,
 
     // Add and initialize variational particles
 
-    ts->t = 0;                 //temporary workaround to avoid segfault associated with malloc
+    //ts->t = NULL;                 //temporary workaround to avoid segfault associated with malloc
     int var_i;
     for(int i=0; i<n_particles; i++){
  
