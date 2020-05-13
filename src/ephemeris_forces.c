@@ -283,9 +283,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
 	  //printf("%le %le %le\n", dx, dy, dz);
 	  
-	  particles[j].ax -= prefac*dx;
-	  particles[j].ay -= prefac*dy;
-	  particles[j].az -= prefac*dz;
+  	  particles[j].ax -= prefac*dx;
+  	  particles[j].ay -= prefac*dy;
+  	  particles[j].az -= prefac*dz;
 
         }
     }
@@ -297,7 +297,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
-//        for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
 
              int v = j + N_real;
              const double dx = particles[j].x + (xo - x);
@@ -330,88 +329,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
              particles[v].az += Gmi * daz; 
 
 //printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
-//        }
         }
     }
 
-/*
-
-                    //////////////////
-                    /// 2nd order  ///
-                    //////////////////
-                    struct reb_particle* const particles_var2 = particles + vc.index;
-                    struct reb_particle* const particles_var1a = particles + vc.index_1st_order_a;
-                    struct reb_particle* const particles_var1b = particles + vc.index_1st_order_b;
-
-                     else{ //testparticle
-                        int i = vc.testparticle;
-                        particles_var2[0].ax = 0.;
-                        particles_var2[0].ay = 0.;
-                        particles_var2[0].az = 0.;
-                        for (int j=0; j<_N_real; j++){
-                            if (i==j) continue;
-                            // TODO: Need to implement WH skipping
-                            //if (_gravity_ignore_terms==1 && ((j==1 && i==0) || (i==1 && j==0))) continue;
-                            //if (_gravity_ignore_terms==2 && ((j==0 || i==0))) continue;
-                            const double dx = particles[i].x - particles[j].x;
-                            const double dy = particles[i].y - particles[j].y;
-                            const double dz = particles[i].z - particles[j].z;
-                            const double r2 = dx*dx + dy*dy + dz*dz;
-                            const double r  = sqrt(r2);
-                            const double r3inv = 1./(r2*r);
-                            const double r5inv = r3inv/r2;
-                            const double r7inv = r5inv/r2;
-                            const double ddx = particles_var2[0].x;
-                            const double ddy = particles_var2[0].y;
-                            const double ddz = particles_var2[0].z;
-                            const double Gmj = G * particles[j].m;
-
-                            // Variational equations
-                            // delta^(2) terms
-                            double dax =         ddx * ( 3.*dx*dx*r5inv - r3inv )
-                                       + ddy * ( 3.*dx*dy*r5inv )
-                                       + ddz * ( 3.*dx*dz*r5inv );
-                            double day =         ddx * ( 3.*dy*dx*r5inv )
-                                       + ddy * ( 3.*dy*dy*r5inv - r3inv )
-                                       + ddz * ( 3.*dy*dz*r5inv );
-                            double daz =         ddx * ( 3.*dz*dx*r5inv )
-                                       + ddy * ( 3.*dz*dy*r5inv )
-                                       + ddz * ( 3.*dz*dz*r5inv - r3inv );
-
-
-                            // delta^(1) delta^(1) terms
-                            const double dk1dx = particles_var1a[0].x;
-                            const double dk1dy = particles_var1a[0].y;
-                            const double dk1dz = particles_var1a[0].z;
-                            const double dk2dx = particles_var1b[0].x;
-                            const double dk2dy = particles_var1b[0].y;
-                            const double dk2dz = particles_var1b[0].z;
-
-                            const double rdk1 =  dx*dk1dx + dy*dk1dy + dz*dk1dz;
-                            const double rdk2 =  dx*dk2dx + dy*dk2dy + dz*dk2dz;
-                            const double dk1dk2 =  dk1dx*dk2dx + dk1dy*dk2dy + dk1dz*dk2dz;
-                            dax     +=        3.* r5inv * dk2dx * rdk1
-                                    + 3.* r5inv * dk1dx * rdk2
-                                    + 3.* r5inv    * dx * dk1dk2
-                                        - 15.      * dx * r7inv * rdk1 * rdk2;
-                            day     +=        3.* r5inv * dk2dy * rdk1
-                                    + 3.* r5inv * dk1dy * rdk2
-                                    + 3.* r5inv    * dy * dk1dk2
-                                        - 15.      * dy * r7inv * rdk1 * rdk2;
-                            daz     +=        3.* r5inv * dk2dz * rdk1
-                                    + 3.* r5inv * dk1dz * rdk2
-                                    + 3.* r5inv    * dz * dk1dk2
-                                        - 15.      * dz * r7inv * rdk1 * rdk2;
-
-                            // No variational mass contributions for test particles!
-
-                            particles_var2[0].ax += Gmj * dax;
-                            particles_var2[0].ay += Gmj * day;
-                            particles_var2[0].az += Gmj * daz;
-                        }
-                    }
-
-*/
 
     // Calculate acceleration due to massive asteroids
     // Rearrange to get all the asteroid positions at once
@@ -437,13 +357,11 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
 
     // Calculate acceleration of variational particles due to massive asteroids
-    /* insert variational calculation here */
     for (int i=0; i<*N_ast; i++){
 
         ast_ephem(i, t, &GM, &x, &y, &z); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
-//        for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
 
              int v = j + N_real;
              const double dx = particles[j].x + (xo - x);
@@ -476,7 +394,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
              particles[v].az += Gmi * daz; 
 
 //printf("i:%d j:%d v:%d r3inv:%lf r2:%lf\n", i, j, v, r3inv, r2);
-//        }
         }
     }
 
@@ -498,7 +415,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const double J4e = -0.000001616;
     const double au = 149597870.700;
     const double Re_eq = 6378.1263/au;
-
     // Unit vector to equatorial pole at the epoch
     // Clean this up!
 
@@ -529,10 +445,16 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Rearrange this loop for efficiency
     for (int j=0; j<N; j++){
+         int v = j + N_real;  //index of corresponding variational particle
+
         const struct reb_particle p = particles[j];
         double dx = p.x + (xo - xr);
         double dy = p.y + (yo - yr);
         double dz = p.z + (zo - zr);
+
+        double ddx = particles[v].x;
+        double ddy = particles[v].y;
+        double ddz = particles[v].z;
 
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
@@ -548,6 +470,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double dyp =  dx * sinr + dy * cosr;
 	double dzp =  dz;
 
+	double ddxp =  ddx * cosr - ddy * sinr;
+	double ddyp =  ddx * sinr + ddy * cosr;
+	double ddzp =  ddz;
+
 	// Rotate around x by Dec
 	double cosd = cos(-incl);
 	double sind = sin(-incl);
@@ -556,22 +482,60 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	dy =  dyp * cosd - dzp * sind;
 	dz =  dyp * sind + dzp * cosd;
 
+	ddx =  ddxp;
+	ddy =  ddyp * cosd - ddzp * sind;
+	ddz =  ddyp * sind + ddzp * cosd;
+
 	// Calculate acceleration in body frame
 	
         const double costheta2 = dz*dz/r2;
         const double J2e_prefac = 3.*J2e*Re_eq*Re_eq/r2/r2/r/2.;
         const double J2e_fac = 5.*costheta2-1.;
+        const double J2e_fac2 = 7.*costheta2-1.;
+        const double J2e_fac3 = 35.*costheta2*costheta2-30.*costheta2+3.;
 
 	double resx = GMearth*J2e_prefac*J2e_fac*dx;
 	double resy = GMearth*J2e_prefac*J2e_fac*dy;
 	double resz = GMearth*J2e_prefac*(J2e_fac-2.)*dz;	
 
+        // Variational equations
+//      const double dxdx = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dx*dx/r2);
+//      const double dydy = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dy*dy/r2);
+//      const double dzdz = G*Msun*J2s_prefac*(-3.)*(1.-12.*costheta2+15.*costheta2*costheta2);
+//      const double dxdy = G*Msun*J2s_prefac*J2s_fac*(-5.)*(dx*dy/r2);
+//      const double dxdz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dx*dz/r2);;
+//      const double dydz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dy*dz/r2);;
+//      const double dzdx = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dx*dz/r2);;
+//      const double dzdy = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dy*dz/r2);;
+        const double dxdx = GMearth*J2e_prefac*(J2e_fac-5.*J2e_fac2*dx*dx/r2);
+        const double dydy = GMearth*J2e_prefac*(J2e_fac-5.*J2e_fac2*dy*dy/r2);
+        const double dzdz = GMearth*J2e_prefac*(-1.)*J2e_fac3;
+        const double dxdy = GMearth*J2e_prefac*(-5.)*J2e_fac2*dx*dy/r2;
+        const double dydz = GMearth*J2e_prefac*(-5.)*(J2e_fac2-2.)*dy*dz/r2;
+        const double dxdz = GMearth*J2e_prefac*(-5.)*(J2e_fac2-2.)*dx*dz/r2;
+        double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+        double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+        double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+
         const double J4e_prefac = 5.*J4e*Re_eq*Re_eq*Re_eq*Re_eq/r2/r2/r2/r/8.;
         const double J4e_fac = 63.*costheta2*costheta2-42.*costheta2 + 3.;
+        const double J4e_fac2= 33.*costheta2*costheta2-18.*costheta2 + 1.;
+        const double J4e_fac3= 33.*costheta2*costheta2-30.*costheta2 + 5.;
+        const double J4e_fac4= 231.*costheta2*costheta2*costheta2-315.*costheta2*costheta2+105.*costheta2 - 5.;
 
         resx += GMearth*J4e_prefac*J4e_fac*dx;
         resy += GMearth*J4e_prefac*J4e_fac*dy;
         resz += GMearth*J4e_prefac*(J4e_fac+12.-28.*costheta2)*dz;
+
+        const double dxdxJ4 = GMearth*J4e_prefac*(J4e_fac-21.*J4e_fac2*dx*dx/r2);
+        const double dydyJ4 = GMearth*J4e_prefac*(J4e_fac-21.*J4e_fac2*dy*dy/r2);
+        const double dzdzJ4 = GMearth*J4e_prefac*(-3.)*J4e_fac4;
+        const double dxdyJ4 = GMearth*J4e_prefac*(-21.)*J4e_fac2*dx*dy/r2;
+        const double dydzJ4 = GMearth*J4e_prefac*(-21.)*J4e_fac3*dy*dz/r2;
+        const double dxdzJ4 = GMearth*J4e_prefac*(-21.)*J4e_fac3*dx*dz/r2;
+        dax +=   ddx * dxdxJ4 + ddy * dxdyJ4 + ddz * dxdzJ4;
+        day +=   ddx * dxdyJ4 + ddy * dydyJ4 + ddz * dydzJ4;
+        daz +=   ddx * dxdzJ4 + ddy * dydzJ4 + ddz * dzdzJ4;
 
 	// Rotate back to original frame
 	// Rotate around x by -Dec
@@ -579,15 +543,26 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double resyp =  resy * cosd + resz * sind;
 	double reszp = -resy * sind + resz * cosd;
 	
+	double daxp =  dax;
+	double dayp =  day * cosd + daz * sind;
+	double dazp = -day * sind + daz * cosd;
+	
 	// Rotate around z by -RA
 	resx =  resxp * cosr + resyp * sinr;
 	resy = -resxp * sinr + resyp * cosr;
 	resz =  reszp;
 
-	particles[j].ax += resx;
+	dax =  daxp * cosr + dayp * sinr;
+	day = -daxp * sinr + dayp * cosr;
+	daz =  dazp;
+
+  	particles[j].ax += resx;
         particles[j].ay += resy; 
         particles[j].az += resz;
 	
+        particles[v].ax += dax;
+        particles[v].ay += day;
+        particles[v].az += daz;
     }
 
     // Here is the treatment of the Sun's J2.
@@ -620,16 +595,19 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
     
     for (int j=0; j<N; j++){
+        int v = j + N_real;  //index of corresponding variational particle
+
         const struct reb_particle p = particles[j];
         double dx = p.x + (xo - xr);
         double dy = p.y + (yo - yr);
         double dz = p.z + (zo - zr);
 
+        double ddx = particles[v].x;
+        double ddy = particles[v].y;
+        double ddz = particles[v].z;
+
         const double r2 = dx*dx + dy*dy + dz*dz;
         const double r = sqrt(r2);
-
-        const double r3inv = 1./(r2*r);    //for variational equations
-        const double r5inv = 3.*r3inv/r2;
 
 	// Rotate to solar equatorial frame
 
@@ -642,6 +620,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double dyp =  dx * sinr + dy * cosr;
 	double dzp =  dz;
 
+	double ddxp =  ddx * cosr - ddy * sinr;
+	double ddyp =  ddx * sinr + ddy * cosr;
+	double ddzp =  ddz;
+
 	// Rotate around x by Dec
 	double cosd = cos(-incl);
 	double sind = sin(-incl);
@@ -650,14 +632,39 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	dy =  dyp * cosd - dzp * sind;
 	dz =  dyp * sind + dzp * cosd;
 
+	ddx =  ddxp;
+	ddy =  ddyp * cosd - ddzp * sind;
+	ddz =  ddyp * sind + ddzp * cosd;
+
 	const double costheta2 = dz*dz/r2;
         const double J2s_prefac = 3.*J2s*Rs_eq*Rs_eq/r2/r2/r/2.;
         const double J2s_fac = 5.*costheta2-1.;
+        const double J2s_fac2 = 7.*costheta2-1.;
+        const double J2s_fac3 = 35.*costheta2*costheta2-30.*costheta2+3.;
 
 	// Calculate acceleration
 	double resx = G*Msun*J2s_prefac*J2s_fac*dx;
 	double resy = G*Msun*J2s_prefac*J2s_fac*dy;
 	double resz = G*Msun*J2s_prefac*(J2s_fac-2.)*dz;
+
+        // Variational equations
+//      const double dxdx = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dx*dx/r2);
+//      const double dydy = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dy*dy/r2);
+//      const double dzdz = G*Msun*J2s_prefac*(-3.)*(1.-12.*costheta2+15.*costheta2*costheta2);
+//      const double dxdy = G*Msun*J2s_prefac*J2s_fac*(-5.)*(dx*dy/r2);
+//      const double dxdz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dx*dz/r2);;
+//      const double dydz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dy*dz/r2);;
+//      const double dzdx = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dx*dz/r2);;
+//      const double dzdy = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dy*dz/r2);;
+        const double dxdx = G*Msun*J2s_prefac*(J2s_fac-5.*J2s_fac2*dx*dx/r2);
+        const double dydy = G*Msun*J2s_prefac*(J2s_fac-5.*J2s_fac2*dy*dy/r2);
+        const double dzdz = G*Msun*J2s_prefac*(-1.)*J2s_fac3;
+        const double dxdy = G*Msun*J2s_prefac*(-5.)*J2s_fac2*dx*dy/r2;
+        const double dydz = G*Msun*J2s_prefac*(-5.)*(J2s_fac2-2.)*dy*dz/r2;
+        const double dxdz = G*Msun*J2s_prefac*(-5.)*(J2s_fac2-2.)*dx*dz/r2;
+        double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+        double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+        double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
 
 	// Rotate back to original frame
 	// Rotate around x by -Dec
@@ -665,17 +672,28 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double resyp =  resy * cosd + resz * sind;
 	double reszp = -resy * sind + resz * cosd;
 	
+	double daxp =  dax;
+	double dayp =  day * cosd + daz * sind;
+	double dazp = -day * sind + daz * cosd;
+	
 	// Rotate around z by -RA
 	resx =  resxp * cosr + resyp * sinr;
 	resy = -resxp * sinr + resyp * cosr;
 	resz =  reszp;
 
+	dax =  daxp * cosr + dayp * sinr;
+	day = -daxp * sinr + dayp * cosr;
+	daz =  dazp;
+
         particles[j].ax += resx;
         particles[j].ay += resy;
         particles[j].az += resz;
 	
-       for (int v=N_real; v<N_real+N_var; v++){ //loop over variational particles
-       }
+        particles[v].ax += dax;
+        particles[v].ay += day;
+        particles[v].az += daz;
+	
+       
     }
 
     // Here is the Solar GR treatment
