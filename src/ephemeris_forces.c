@@ -499,14 +499,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double resz = GMearth*J2e_prefac*(J2e_fac-2.)*dz;	
 
         // Variational equations
-//      const double dxdx = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dx*dx/r2);
-//      const double dydy = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dy*dy/r2);
-//      const double dzdz = G*Msun*J2s_prefac*(-3.)*(1.-12.*costheta2+15.*costheta2*costheta2);
-//      const double dxdy = G*Msun*J2s_prefac*J2s_fac*(-5.)*(dx*dy/r2);
-//      const double dxdz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dx*dz/r2);;
-//      const double dydz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dy*dz/r2);;
-//      const double dzdx = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dx*dz/r2);;
-//      const double dzdy = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dy*dz/r2);;
         const double dxdx = GMearth*J2e_prefac*(J2e_fac-5.*J2e_fac2*dx*dx/r2);
         const double dydy = GMearth*J2e_prefac*(J2e_fac-5.*J2e_fac2*dy*dy/r2);
         const double dzdz = GMearth*J2e_prefac*(-1.)*J2e_fac3;
@@ -648,14 +640,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	double resz = G*Msun*J2s_prefac*(J2s_fac-2.)*dz;
 
         // Variational equations
-//      const double dxdx = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dx*dx/r2);
-//      const double dydy = G*Msun*J2s_prefac*J2s_fac*(1.-5.*dy*dy/r2);
-//      const double dzdz = G*Msun*J2s_prefac*(-3.)*(1.-12.*costheta2+15.*costheta2*costheta2);
-//      const double dxdy = G*Msun*J2s_prefac*J2s_fac*(-5.)*(dx*dy/r2);
-//      const double dxdz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dx*dz/r2);;
-//      const double dydz = G*Msun*J2s_prefac*(-5.)*(7.*costheta2-1.)*(dy*dz/r2);;
-//      const double dzdx = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dx*dz/r2);;
-//      const double dzdy = G*Msun*J2s_prefac*(J2s_fac-2.)*(-5.)*(dy*dz/r2);;
         const double dxdx = G*Msun*J2s_prefac*(J2s_fac-5.*J2s_fac2*dx*dx/r2);
         const double dydy = G*Msun*J2s_prefac*(J2s_fac-5.*J2s_fac2*dy*dy/r2);
         const double dzdz = G*Msun*J2s_prefac*(-1.)*J2s_fac3;
@@ -707,6 +691,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const double mu = G*Msun; 
     const int max_iterations = 10; // hard-coded parameter.
     for (int j=0; j<N; j++){
+         int v = j + N_real;  //index of corresponding variational particle
+
         struct reb_particle p = particles[j];
         struct reb_vec3d vi;
 
@@ -723,6 +709,14 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         double vi2=vi.x*vi.x + vi.y*vi.y + vi.z*vi.z;
         const double ri = sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
 	
+        // variational particle coords
+        double ddx = particles[v].x;
+        double ddy = particles[v].y;
+        double ddz = particles[v].z;
+        double ddvx = particles[v].vx;
+        double ddvy = particles[v].vy;
+        double ddvz = particles[v].vz;
+
         int q = 0;
         double A = (0.5*vi2 + 3.*mu/ri)/C2;
         struct reb_vec3d old_v;
@@ -762,6 +756,42 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].ay += B*(1.-A)*p.y - A*p.ay - D*vi.y;
         particles[j].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
 
+        // Variational equations
+        const double prefac = mu/(ri*ri*ri)/C2;
+        const double rdotv = p.x*p.vx+p.y*p.vy+p.z*p.vz;
+        const double fac1 = mu/ri-vi2;
+        const double fac2 = 3.*vi2/ri/ri-4.*mu/ri/ri/ri;;
+        const double fac3 = 12.*rdotv/ri/ri;
+
+        const double dxdx = prefac*(fac1+fac2*p.x*p.x+4.*p.vx*p.vx-fac3*p.vx*p.x);
+        const double dydy = prefac*(fac1+fac2*p.y*p.y+4.*p.vy*p.vy-fac3*p.vy*p.y);
+        const double dzdz = prefac*(fac1+fac2*p.z*p.z+4.*p.vz*p.vz-fac3*p.vz*p.z);
+        const double dxdy = prefac*(fac2*p.x*p.y+4.*p.vx*p.vy-fac3*p.vx*p.y);
+        const double dydx = prefac*(fac2*p.y*p.x+4.*p.vy*p.vx-fac3*p.vy*p.x);
+        const double dxdz = prefac*(fac2*p.x*p.z+4.*p.vx*p.vz-fac3*p.vx*p.z);
+        const double dzdx = prefac*(fac2*p.z*p.x+4.*p.vz*p.vx-fac3*p.vz*p.x);
+        const double dydz = prefac*(fac2*p.y*p.z+4.*p.vy*p.vz-fac3*p.vy*p.z);
+        const double dzdy = prefac*(fac2*p.z*p.y+4.*p.vz*p.vy-fac3*p.vz*p.y);
+        const double dxdvx = prefac*(4.*rdotv-2.*p.x*p.vx+4.*p.x*p.vx);
+        const double dydvy = prefac*(4.*rdotv-2.*p.y*p.vy+4.*p.y*p.vy);
+        const double dzdvz = prefac*(4.*rdotv-2.*p.z*p.vz+4.*p.z*p.vz);
+        const double dxdvy = prefac*(-2.*p.x*p.vy+4.*p.y*p.vx);
+        const double dydvx = prefac*(-2.*p.y*p.vx+4.*p.x*p.vy);
+        const double dxdvz = prefac*(-2.*p.x*p.vz+4.*p.z*p.vx);
+        const double dzdvx = prefac*(-2.*p.z*p.vx+4.*p.x*p.vz);
+        const double dydvz = prefac*(-2.*p.y*p.vz+4.*p.z*p.vy);
+        const double dzdvy = prefac*(-2.*p.z*p.vy+4.*p.y*p.vz);
+
+        const double dax =   ddx  * dxdx  + ddy  * dxdy  + ddz  * dxdz
+                         +   ddvx * dxdvx + ddvy * dxdvy + ddvz * dxdvz;
+        const double day =   ddx  * dydx  + ddy  * dydy  + ddz  * dydz
+                         +   ddvx * dydvx + ddvy * dydvy + ddvz * dydvz;
+        const double daz =   ddx  * dzdx  + ddy  * dzdy  + ddz  * dzdz
+                         +   ddvx * dzdvx + ddvy * dzdvy + ddvz * dzdvz;
+
+        particles[v].ax += dax;
+        particles[v].ay += day;
+        particles[v].az += daz;
     }
 
 
