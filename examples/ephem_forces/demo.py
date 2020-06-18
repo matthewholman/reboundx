@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import ephem_forces
 
 tstart, tstep, trange = 2458849.5, 20.0, 500

@@ -9,8 +9,9 @@ files.
 
 from ctypes import *
 import numpy as np
+from os import path as osp
 
-rebx_location = '/Users/mholman/reboundx/examples/ephem_forces/libreboundx.so'
+rebx_location = osp.join(osp.dirname(osp.realpath(__file__)), 'libreboundx.so')
 rebx_lib = CDLL(rebx_location)
 
 class TimeState(Structure):
@@ -53,7 +54,7 @@ def integration_function(tstart, tstep, trange,
     np.array 
          an array of the dynamical states (positions and velocities) of
          the test particles at each of the output times.  The array has
-         shape (n_particles, 6, number of times).
+         shape (number of times, n_particles, 6).
     int
          number of output times         
     int
@@ -83,7 +84,7 @@ def integration_function(tstart, tstep, trange,
     # Parse and restructure the results
     n_out = timestate.n_out
     times  = np.ctypeslib.as_array(timestate.t, shape=(n_out,))
-    states = np.ctypeslib.as_array(timestate.state, shape=(n_particles, 6, n_out))
+    states = np.ctypeslib.as_array(timestate.state, shape=(n_out, n_particles, 6))
     n_particles = timestate.n_particles
 
     return times, states, n_out, n_particles
