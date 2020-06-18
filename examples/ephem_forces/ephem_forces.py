@@ -83,7 +83,7 @@ def integration_function(tstart, tstep, trange,
     # Parse and restructure the results
     n_out = timestate.n_out
     times  = np.ctypeslib.as_array(timestate.t, shape=(n_out,))
-    states = np.ctypeslib.as_array(timestate.state, shape=(n_particles, 6, n_out))
+    states = np.ctypeslib.as_array(timestate.state, shape=(n_particles, n_out, 6))
     n_particles = timestate.n_particles
 
     return times, states, n_out, n_particles
