@@ -306,7 +306,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
            const double _r  = sqrt(r2);
            const double r3inv = 1./(r2*_r);
            const double r5inv = 3.*r3inv/r2;
-           for(int v = j + N_real; v < j + N_real+6; v++){
+           for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
              const double ddx = particles[v].x;
              const double ddy = particles[v].y;
              const double ddz = particles[v].z;
@@ -370,7 +370,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
            const double _r  = sqrt(r2);
            const double r3inv = 1./(r2*_r);
            const double r5inv = 3.*r3inv/r2;
-           for(int v = j + N_real; v < j + N_real+6; v++){
+           for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
              const double ddx = particles[v].x;
              const double ddy = particles[v].y;
              const double ddz = particles[v].z;
@@ -556,7 +556,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 //      particles[v].ay += day;
 //      particles[v].az += daz;
 
-        for(int v = j + N_real; v < j + N_real +6; v++){
+//      for(int v = j + N_real; v < j + N_real +6; v++){
+        for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
           double ddx = particles[v].x;
           double ddy = particles[v].y;
           double ddz = particles[v].z;
@@ -724,7 +725,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 //      particles[v].ay += day;
 //      particles[v].az += daz;
 	
-        for(int v = j + N_real; v<j+N_real+6; v++){
+//      for(int v = j + N_real; v<j+N_real+6; v++){
+        for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
 
           double ddx = particles[v].x;
           double ddy = particles[v].y;
@@ -840,7 +842,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].ay += B*(1.-A)*p.y - A*p.ay - D*vi.y;
         particles[j].az += B*(1.-A)*p.z - A*p.az - D*vi.z;
 
-        for(int v = j + N_real; v < j + N_real+6; v++){
+//      for(int v = j + N_real; v < j + N_real+6; v++){
+        for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
          // variational particle coords
          double ddx = particles[v].x;
          double ddy = particles[v].y;
