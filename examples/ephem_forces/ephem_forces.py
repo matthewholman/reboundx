@@ -10,7 +10,8 @@ files.
 from ctypes import *
 import numpy as np
 
-rebx_location = '/Users/mholman/reboundx/examples/ephem_forces/libreboundx.so'
+rebx_location = '/Users/aryaakmal/Documents/REBOUND/rebound/reboundx/examples/ephem_forces/libreboundx.so'
+
 rebx_lib = CDLL(rebx_location)
 
 class TimeState(Structure):
