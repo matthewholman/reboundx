@@ -70,17 +70,19 @@ def integration_function(tstart, tstep, trange,
                                       POINTER(c_double),
                                       POINTER(TimeState))
 
-    _integration_function.restype = None
+    #_integration_function.restype = None
 
     return_value = _integration_function(tstart, tstep, trange, geocentric,
                                          n_particles,
                                          instate_arr.ctypes.data_as(POINTER(c_double)),
                                          byref(timestate))
 
+    print("here 2", return_value)
+
     # Parse and restructure the results
     n_out = timestate.n_out
     times  = np.ctypeslib.as_array(timestate.t, shape=(n_out,))
-    states = np.ctypeslib.as_array(timestate.state, shape=(n_out, n_particles, 6))
+    states = np.ctypeslib.as_array(timestate.state, shape=(n_out, 7*n_particles, 6))
     n_particles = timestate.n_particles
 
     return times, states, n_out, n_particles

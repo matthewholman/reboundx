@@ -26,7 +26,7 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
 int main(int argc, char* argv[]){
 
     timestate ts;
-    timestate* tsp= (timestate*)malloc(sizeof(timestate));
+    timestate* tsp = (timestate*)malloc(sizeof(timestate));
 
     double *instate;    
     double* outstate;
@@ -48,6 +48,11 @@ int main(int argc, char* argv[]){
         exit(EXIT_FAILURE);
     }
 
+    double scale;
+
+    sscanf(argv[2], "%lf", &scale);
+    fflush(stdout);
+
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
 			     int n_particles,
@@ -67,20 +72,44 @@ int main(int argc, char* argv[]){
 			  instate,             //ICs in instate correpond to tepoch
 			  tsp);
 
+     printf("here\n");
+     fflush(stdout);
+
      n_out = tsp->n_out;
      outtime = tsp->t;
      outstate = tsp->state;
 
      for(int i=0; i<n_out; i++){
-	 for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
+	 int offset = i*7*n_particles*6; //XYZ
+	 for(int j=0; j<0; j++){ 
+	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
 	     fprintf(g,"%lf ", outtime[i]);
-	     fprintf(g,"%d ", j);
-	     int offset = (i*7*n_particles+j)*6; //XYZ
+	     fprintf(g,"%3d ", j);
 	     for(int k=0; k<6; k++){
-		 fprintf(g,"%16.8e ", outstate[offset+k]);
+		 fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
 	     }
 	     fprintf(g,"\n");
 	 }
+	 fprintf(g,"%lf ", outtime[i]);
+	 
+	 for(int j=1; j<7; j++){ 
+	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
+	     //fprintf(g,"%3d ", j);
+	     
+	     for(int k=0; k<6; k++){
+		 fprintf(g,"%28.16e ", outstate[offset+6*j+k] - (outstate[offset+6*0+k] + scale*outstate[offset+6*(j+6)+k]));		 
+	     }
+	     /*
+	     fprintf(g,"%lf ", outtime[i]);	     
+	     fprintf(g,"%3d ", (j+6));
+	     for(int k=0; k<6; k++){
+		 fprintf(g,"%28.16e ", outstate[offset+6*0+k] + outstate[offset+6*(j+6)+k]);
+	     }
+	     fprintf(g,"\n");
+	     */
+	 }
+	 fprintf(g,"\n");
+
      }
      
     }else{
@@ -101,7 +130,7 @@ int main(int argc, char* argv[]){
 		fprintf(g,"%d ", j);
 		int offset = (i*7*n_particles+j)*6; //XYZ
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%16.8e ", outstate[offset+k]);
+		    fprintf(g,"%28.16e ", outstate[offset+k]);
 		}
 		fprintf(g,"\n");
 	    }
@@ -123,7 +152,7 @@ int main(int argc, char* argv[]){
 		fprintf(g,"%d ", j);
 		int offset = (i*7*n_particles+j)*6; //XYZ
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%16.8e ", outstate[offset+k]);
+		    fprintf(g,"%28.16e ", outstate[offset+k]);
 		}
 		fprintf(g,"\n");
 	    }
@@ -196,12 +225,13 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
       *n_particles = np;
       *instate = state;      
       *cov_mat = cov;
-      
+
       fclose(fp);
 
      }else{
        exit(EXIT_FAILURE);
      }
 
+     return;
 }
 
