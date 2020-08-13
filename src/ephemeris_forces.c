@@ -937,11 +937,17 @@ int integration_function(double tstart, double tstep, double trange,
     if(outstate == NULL){
 	outstate = (double *) malloc(7*n_out*n_particles*6*sizeof(double));
 	printf("malloc: %d\n", n_out);
+    }else{
+	outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
+	printf("realloc: %d\n", n_out);
     }
 
     if(outtime == NULL){    
 	outtime  = (double *) malloc(n_out*sizeof(double));
 	printf("malloc\n");
+    }else{
+	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
+	printf("realloc: %d\n", n_out);
     }
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
@@ -1146,7 +1152,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 
     }
 
-    // Loop over interval using Gauss-Radau spacings      
+    // Loop over intervals using Gauss-Radau spacings      
     for(int n=1;n<8;n++) {                          
 
 	s[0] = r->dt_last_done * h[n];

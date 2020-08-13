@@ -24,7 +24,9 @@ instates = np.array([[ 3.338876057509365E+00, -9.176517956664152E-01, -5.0385904
    2.8056636785577958e-03,  7.5504082591443047e-03,  2.9810283699860962e-03]])
  
 
-times, states, n_out, n_particles = ephem_forces.integration_function(tstart, tstep, trange, geocentric, n_particles, instates)
+for i in range(20):
+    times, states, n_out, n_particles = ephem_forces.integration_function(tstart, tstep, trange, geocentric, n_particles, instates)
+    
 
 '''
 tstart=2456117.641933589 ;
