@@ -1,7 +1,7 @@
 import numpy as np
 import ephem_forces
 
-tstart, tstep, trange = 2458849.5, 20.0, 500
+tstart, tstep, trange = 2458849.5, 20.0, 1000
 geocentric = 0
 n_particles = 7
 #instates = np.array([3.338876057509365E+00, -9.176517956664152E-01, -5.038590450387491E-01,
@@ -25,6 +25,7 @@ instates = np.array([[ 3.338876057509365E+00, -9.176517956664152E-01, -5.0385904
  
 
 for i in range(20):
+    print(i)
     times, states, n_out, n_particles = ephem_forces.integration_function(tstart, tstep, trange, geocentric, n_particles, instates)
     
 

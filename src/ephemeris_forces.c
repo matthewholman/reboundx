@@ -928,26 +928,20 @@ int integration_function(double tstart, double tstep, double trange,
 
     int n_out = (int)8*fabs(trange/tstep);
 
-    printf("n_particles: %d\n", n_particles);
-
+    // Allocate arrays
     static double* outstate = NULL;
     static double* outtime = NULL;
 
-    // Allocate arrays
     if(outstate == NULL){
 	outstate = (double *) malloc(7*n_out*n_particles*6*sizeof(double));
-	printf("malloc: %d\n", n_out);
     }else{
 	outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
-	printf("realloc: %d\n", n_out);
     }
 
     if(outtime == NULL){    
 	outtime  = (double *) malloc(n_out*sizeof(double));
-	printf("malloc\n");
     }else{
 	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
-	printf("realloc: %d\n", n_out);
     }
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
@@ -1025,14 +1019,12 @@ int integration_function(double tstart, double tstep, double trange,
 
     int N = r->N; // N includes real+variational particles
 
-    printf("N: %d\n", N);
-  
     r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
     r->dt = tstep;    // time step in days, this is just an initial value.
 
     outtime[0] = r->t;	
     
-    for(int j=0; j<N; j++){ //XYZ
+    for(int j=0; j<N; j++){
 	int offset = j*6;
 	outstate[offset+0] = r->particles[j].x;
 	outstate[offset+1] = r->particles[j].y;
@@ -1053,9 +1045,10 @@ int integration_function(double tstart, double tstep, double trange,
 
     while((r->t)*dtsign<tmax*dtsign){ 
 
+	fflush(stdout);
 	// This could be a helper function
 	// Save the previous completed state.
-	for(int j=0; j<N; j++){ //XYZ
+	for(int j=0; j<N; j++){ 
 	    last[j].t = r->t;	
 	    last[j].x = r->particles[j].x;
 	    last[j].y = r->particles[j].y;
@@ -1078,8 +1071,6 @@ int integration_function(double tstart, double tstep, double trange,
 	    n_out *= 2;
 	    outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
 	    outtime  = (double *) realloc(outtime, n_out*sizeof(double));	    
-	    printf("realloc: %i %d\n", i, n_out);
-	    fflush(stdout);
 	}
 
 	reb_update_acceleration(r); // This is needed to save the acceleration.
@@ -1088,8 +1079,9 @@ int integration_function(double tstart, double tstep, double trange,
 
     }
 
-    outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
-    outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
+    // Reallocate the arrays to trim off unneede space.
+    //outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
+    //outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
 
     // save pointers to the results in the timestate struct
     ts->t = outtime;
@@ -1097,12 +1089,23 @@ int integration_function(double tstart, double tstep, double trange,
     ts->n_particles = n_particles;
     ts->n_out = (i-1)*8;
 
-    // explicitly free all the memory allocated by REBOUNDx     
-    rebx_free(rebx);    
-    reb_free_simulation(r);
+    // explicitly free all the memory allocated by REBOUNDx
 
+    //rebx_free(rebx);    
+    //reb_free_simulation(r);
+
+    fflush(stdout);
     return(1);
 }
+
+// This function is doing two related things:
+// 1. Calculating the positions and velocities at the substeps
+// 2. Storing the times and positions/velocities in the arrays
+//    that are provided.
+// For this to work, we need:
+// * the last valid state for all particles,
+// * the b coefficients for all the particles,
+// * the last time step
 
 void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate){
     
@@ -1110,11 +1113,13 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
     int N3 = 3*N;
     double s[9]; // Summation coefficients
 
+    // Store the time and state for each particle for last
+    // completed step.
     outtime[n_out] = last[0].t;
 
-    printf("%d\n", n_out);
-
     for(int j=0; j<n_particles; j++){
+	// Rather than computing an offset, perhaps there should be
+	// an index for the next open slot.
 	int offset = (n_out*n_particles+j)*6;
 	outstate[offset+0] = last[j].x;
 	outstate[offset+1] = last[j].y;	
@@ -1166,11 +1171,11 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	s[7] = 3. * s[6] * h[n] / 4.;
 	s[8] = 7. * s[7] * h[n] / 9.;
 
-	double t = r->t + r->dt_last_done * (h[n] - 1.0);
-	printf("%d %lf\n", n_out+n, t);
+	double t = r->t + r->dt_last_done * (-1.0 + h[n]);
 	outtime[n_out+n] = t;	
 
-	// Predict positions at interval n using b values	
+	// Predict positions at interval n using b values
+	// for all the particles
 	for(int j=0;j<N;j++) {  
 	  //int mj = j;
 	  const int k0 = 3*j+0;
@@ -1181,6 +1186,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	  double xy0 = x0[k1] + (s[8]*b.p6[k1] + s[7]*b.p5[k1] + s[6]*b.p4[k1] + s[5]*b.p3[k1] + s[4]*b.p2[k1] + s[3]*b.p1[k1] + s[2]*b.p0[k1] + s[1]*a0[k1] + s[0]*v0[k1] );
 	  double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
 
+	  // Store the results
 	  int offset = ((n_out+n)*n_particles+j)*6;
 	  outstate[offset+0] = xx0;
 	  outstate[offset+1] = xy0;	  	  
@@ -1197,7 +1203,8 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	s[6] = 6. * s[5] * h[n] / 7.;
 	s[7] = 7. * s[6] * h[n] / 8.;
 
-	// Predict velocities at interval n using b values	
+	// Predict velocities at interval n using b values
+	// for all the particles
 	for(int j=0;j<N;j++) {
 
 	  const int k0 = 3*j+0;
@@ -1208,6 +1215,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	  double vy0 = v0[k1] + s[7]*b.p6[k1] + s[6]*b.p5[k1] + s[5]*b.p4[k1] + s[4]*b.p3[k1] + s[3]*b.p2[k1] + s[2]*b.p1[k1] + s[1]*b.p0[k1] + s[0]*a0[k1];
 	  double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
 
+	  // Store the results
 	  int offset = ((n_out+n)*n_particles+j)*6;	  
 	  outstate[offset+3] = vx0;
 	  outstate[offset+4] = vy0;	  	  

@@ -77,8 +77,6 @@ def integration_function(tstart, tstep, trange,
                                          instate_arr.ctypes.data_as(POINTER(c_double)),
                                          byref(timestate))
 
-    print("here 2", return_value)
-
     # Parse and restructure the results
     n_out = timestate.n_out
     times  = np.ctypeslib.as_array(timestate.t, shape=(n_out,))
