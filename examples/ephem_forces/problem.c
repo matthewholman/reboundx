@@ -51,7 +51,6 @@ int main(int argc, char* argv[]){
     double scale;
 
     sscanf(argv[2], "%lf", &scale);
-    fflush(stdout);
 
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
@@ -63,7 +62,7 @@ int main(int argc, char* argv[]){
     FILE* g = fopen("out_states.txt","w");
 
     tsp->t = NULL;
-    
+
     if(tstart >= tepoch){
      integration_function(tepoch, tstep, trange+tstart-tepoch,
      //integration_function(tstart, tstep, trange,
@@ -72,16 +71,13 @@ int main(int argc, char* argv[]){
 			  instate,             //ICs in instate correpond to tepoch
 			  tsp);
 
-     printf("here\n");
-     fflush(stdout);
-
      n_out = tsp->n_out;
      outtime = tsp->t;
      outstate = tsp->state;
 
      for(int i=0; i<n_out; i++){
 	 int offset = i*7*n_particles*6; //XYZ
-	 for(int j=0; j<0; j++){ 
+	 for(int j=0; j<1; j++){ 
 	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
 	     fprintf(g,"%lf ", outtime[i]);
 	     fprintf(g,"%3d ", j);
@@ -90,9 +86,9 @@ int main(int argc, char* argv[]){
 	     }
 	     fprintf(g,"\n");
 	 }
-	 fprintf(g,"%lf ", outtime[i]);
+	 //fprintf(g,"%lf ", outtime[i]);
 	 
-	 for(int j=1; j<7; j++){ 
+	 for(int j=1; j<0; j++){ 
 	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
 	     //fprintf(g,"%3d ", j);
 	     
@@ -108,11 +104,14 @@ int main(int argc, char* argv[]){
 	     fprintf(g,"\n");
 	     */
 	 }
-	 fprintf(g,"\n");
+	 //fprintf(g,"\n");
 
      }
      
     }else{
+
+	printf("out\n");
+	fflush(stdout);
 
 	integration_function(tepoch, -tstep, tstart-tepoch,
       			  geocentric,

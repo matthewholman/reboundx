@@ -1,3 +1,4 @@
+
 /** * @file ephemeris_forces.c
  * @brief   A routine for ephemeris-quality force calculations.
  * @author  Matthew Holman <mholman@cfa.harvard.edu>
@@ -51,7 +52,7 @@
  * 7. Put in J2 of the sun.  This will require thinking about the orientation of the spin 
  *    axis.  DONE.
  *
- * 8. Fix loop over particles.
+ * 8. Fix loop over particles.  DONE.
  * 
  * 9. Develop sensible code that transitions to and from geocentric system.
  *
@@ -107,6 +108,7 @@ void ephem(const int i, const double jde, double* const GM,
 
     // The values below are G*mass.
     // Units are solar masses, au, days.
+    // The units should probably be handled elsewhere.
     const static double JPL_GM[11] =
 	{
 	    0.295912208285591100E-03, // 0  sun  
@@ -130,7 +132,7 @@ void ephem(const int i, const double jde, double* const GM,
     if (initialized == 0){
       
       if ((pl = jpl_init()) == NULL) {
-	fprintf(stderr, "could not load DE430 file, fool!\n");
+	fprintf(stderr, "could not load DE430 file\n");
 	exit(EXIT_FAILURE);
       }
 
@@ -204,7 +206,7 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
     if (initialized == 0){
       
       if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
-	fprintf(stderr, "could not load sb431-n16 file, fool!\n");
+	fprintf(stderr, "could not load sb431-n16 file\n");
 	exit(EXIT_FAILURE);
       }
 
@@ -257,23 +259,27 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     
     double GM;
     double x, y, z, vx, vy, vz, ax, ay, az;
-    double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
-    double xe, ye, ze, vxe, vye, vze, axe, aye, aze;
-    double xo, yo, zo, vxo, vyo, vzo;
-    double xr, yr, zr, vxr, vyr, vzr;
 
     // Get mass, position, velocity, and acceleration of the Earth and Sun
-    // for later use
+    // for later use.
+    // The hard-wired constants should be changed.
+    double xe, ye, ze, vxe, vye, vze, axe, aye, aze;    
     ephem(3, t, &GM, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
+    
+    double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;    
     ephem(0, t, &GM, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);     
 
     // The offset position is used to adjust the particle positions.
+    // The options are the barycenter (default) and geocenter.
+    double xo, yo, zo, vxo, vyo, vzo;
     if(*geo == 1){
-      xo = xe;    yo = ye;    zo = ze;
-      vxo = vxe;  vyo = vye;  vzo = vze;
+	// geocentric
+	xo = xe;    yo = ye;    zo = ze;
+	vxo = vxe;  vyo = vye;  vzo = vze;
     }else{
-      xo = 0.0;  yo = 0.0;  zo = 0.0;
-      vxo = 0.0; vyo = 0.0; vzo = 0.0;      
+	// barycentric
+	xo = 0.0;  yo = 0.0;  zo = 0.0;
+	vxo = 0.0; vyo = 0.0; vzo = 0.0;      
     }
 
     // Calculate acceleration due to sun and planets
@@ -300,6 +306,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Calculate acceleration of variational particles due to sun and planets
     for (int i=0; i<*N_ephem; i++){
+
+	//break;
 
         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
@@ -374,6 +382,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Calculate acceleration of variational particles due to massive asteroids
     for (int i=0; i<*N_ast; i++){
 
+	//break;
+
         ast_ephem(i, t, &GM, &x, &y, &z); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
@@ -426,14 +436,15 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // epoch.
     //
 
-    // The geocenter is the reference for the J2/J4 calculations.
+    // The geocenter is the reference for the Earth J2/J4 calculations.
+    double xr, yr, zr, vxr, vyr, vzr;
     xr = xe;  yr = ye;  zr = ze;
 
     // Hard-coded constants.  BEWARE!
     // Clean up on aisle 3!
     const double GMearth = 0.888769244512563400E-09;
     const double J2e = 0.00108262545;
-    const double J4e = -0.000001616*0.0;
+    const double J4e = -0.000001616;
     const double au = 149597870.700;
     const double Re_eq = 6378.1263/au;
     // Unit vector to equatorial pole at the epoch
@@ -547,39 +558,40 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
-          double ddx = particles[v].x;
-          double ddy = particles[v].y;
-          double ddz = particles[v].z;
+	    //break;
+	    double ddx = particles[v].x;
+	    double ddy = particles[v].y;
+	    double ddz = particles[v].z;
 
-	  // Rotate to Earth equatorial frame
-  	  double ddxp =  ddx * cosr - ddy * sinr;
-  	  double ddyp =  ddx * sinr + ddy * cosr;
-  	  double ddzp =  ddz;
-  	  ddx =  ddxp;
-  	  ddy =  ddyp * cosd - ddzp * sind;
-  	  ddz =  ddyp * sind + ddzp * cosd;
+	    // Rotate to Earth equatorial frame
+	    double ddxp =  ddx * cosr - ddy * sinr;
+	    double ddyp =  ddx * sinr + ddy * cosr;
+	    double ddzp =  ddz;
+	    ddx =  ddxp;
+	    ddy =  ddyp * cosd - ddzp * sind;
+	    ddz =  ddyp * sind + ddzp * cosd;
 
-          // Matrix multiplication
-          double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
-          double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
-          double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+	    // Matrix multiplication
+	    double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+	    double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+	    double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
 
-          dax +=   ddx * dxdxJ4 + ddy * dxdyJ4 + ddz * dxdzJ4;
-          day +=   ddx * dxdyJ4 + ddy * dydyJ4 + ddz * dydzJ4;
-          daz +=   ddx * dxdzJ4 + ddy * dydzJ4 + ddz * dzdzJ4;
+	    dax +=   ddx * dxdxJ4 + ddy * dxdyJ4 + ddz * dxdzJ4;
+	    day +=   ddx * dxdyJ4 + ddy * dydyJ4 + ddz * dydzJ4;
+	    daz +=   ddx * dxdzJ4 + ddy * dydzJ4 + ddz * dzdzJ4;
 
-	  // Rotate back
-  	  double daxp =  dax;
-  	  double dayp =  day * cosd + daz * sind;
-  	  double dazp = -day * sind + daz * cosd;
-  	  dax =  daxp * cosr + dayp * sinr;
-  	  day = -daxp * sinr + dayp * cosr;
-  	  daz =  dazp;
+	    // Rotate back
+	    double daxp =  dax;
+	    double dayp =  day * cosd + daz * sind;
+	    double dazp = -day * sind + daz * cosd;
+	    dax =  daxp * cosr + dayp * sinr;
+	    day = -daxp * sinr + dayp * cosr;
+	    daz =  dazp;
 
-	  // Accumulate acceleration terms
-          particles[v].ax += dax;
-          particles[v].ay += day;
-          particles[v].az += daz;
+	    // Accumulate acceleration terms
+	    particles[v].ax += dax;
+	    particles[v].ay += day;
+	    particles[v].az += daz;
 
         }
     }
@@ -681,35 +693,37 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
 
-          double ddx = particles[v].x;
-          double ddy = particles[v].y;
-          double ddz = particles[v].z;
+	    //break;
 
-	  // Rotate to solar equatorial frame
-	  double ddxp =  ddx * cosr - ddy * sinr;
-	  double ddyp =  ddx * sinr + ddy * cosr;
-	  double ddzp =  ddz;
+	    double ddx = particles[v].x;
+	    double ddy = particles[v].y;
+	    double ddz = particles[v].z;
 
-          ddx =  ddxp;
-	  ddy =  ddyp * cosd - ddzp * sind;
-	  ddz =  ddyp * sind + ddzp * cosd;
+	    // Rotate to solar equatorial frame
+	    double ddxp =  ddx * cosr - ddy * sinr;
+	    double ddyp =  ddx * sinr + ddy * cosr;
+	    double ddzp =  ddz;
 
-          double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
-          double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
-          double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+	    ddx =  ddxp;
+	    ddy =  ddyp * cosd - ddzp * sind;
+	    ddz =  ddyp * sind + ddzp * cosd;
 
-          // Rotate back to original frame
-	  double daxp =  dax;
-	  double dayp =  day * cosd + daz * sind;
-	  double dazp = -day * sind + daz * cosd;
-	  dax =  daxp * cosr + dayp * sinr;
-	  day = -daxp * sinr + dayp * cosr;
-	  daz =  dazp;
+	    double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+	    double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+	    double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
 
-	  // Accumulate acceleration terms
-          particles[v].ax += dax;
-          particles[v].ay += day;
-          particles[v].az += daz;
+	    // Rotate back to original frame
+	    double daxp =  dax;
+	    double dayp =  day * cosd + daz * sind;
+	    double dazp = -day * sind + daz * cosd;
+	    dax =  daxp * cosr + dayp * sinr;
+	    day = -daxp * sinr + dayp * cosr;
+	    daz =  dazp;
+
+	    // Accumulate acceleration terms
+	    particles[v].ax += dax;
+	    particles[v].ay += day;
+	    particles[v].az += daz;
 
         } 
        
@@ -812,6 +826,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
 
+	    //break;
+
 	    // variational particle coords
 	    double ddx = particles[v].x;
 	    double ddy = particles[v].y;
@@ -836,6 +852,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
+    // This is the indirect term for geocentric equations
+    // of motion.
     if(*geo == 1){
 
       for (int j=0; j<N_real; j++){    
@@ -890,13 +908,21 @@ typedef struct {
 // Gauss Radau spacings
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
+// integration_function
+// tstart: integration start time in tdb
+// tstep: suggested initial time step (days)
+// trange: amount of time to integrate (days)
+// geocentric: 1==geocentric equations of motion, 0==heliocentric
+// n_particles: number of input test particles
+// instate: input states of test particles
+// ts: output times and states.
 int integration_function(double tstart, double tstep, double trange,
 			 int geocentric,
 			 int n_particles,
 			 double* instate,
 			 timestate *ts){
 
-    void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate);
+    void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate);
     struct reb_simulation* r = reb_create_simulation();
 
     // Set up simulation constants
@@ -907,6 +933,9 @@ int integration_function(double tstart, double tstep, double trange,
     r->collision = REB_COLLISION_NONE;  // This is important and needs to be considered carefully.
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
+
+    r->ri_ias15.min_dt = 5e-3;  // to avoid very small time steps
+    r->ri_ias15.epsilon = 1e-6; // to avoid convergence issue with geocentric orbits
     
     struct rebx_extras* rebx = rebx_attach(r);
 
@@ -917,9 +946,13 @@ int integration_function(double tstart, double tstep, double trange,
     rebx_set_param_int(rebx, &ephem_forces->ap, "geocentric", geocentric);
 
     // Set number of ephemeris bodies
+    // This is currently a fixed number based on the number of bodies
+    // included in the JPL ephemeris file.
     rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 11);
 
     // Set number of massive asteroids
+    // This is currently a fixed number based on the number of asteroids
+    // included in the JPL ephemeris file.
     rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
 
     // Set speed of light in right units (set by G & initial conditions).
@@ -932,6 +965,8 @@ int integration_function(double tstart, double tstep, double trange,
     static double* outstate = NULL;
     static double* outtime = NULL;
 
+    // This might belong in store_function
+    // Or in some kind of init() function
     if(outstate == NULL){
 	outstate = (double *) malloc(7*n_out*n_particles*6*sizeof(double));
     }else{
@@ -1020,7 +1055,8 @@ int integration_function(double tstart, double tstep, double trange,
     int N = r->N; // N includes real+variational particles
 
     r->t = tstart;    // set simulation internal time to the time of test particle initial conditions.
-    r->dt = tstep;    // time step in days, this is just an initial value.
+    r->dt = tstep;    // time step in days, this is just an initial value.  It probably does not need
+                      // to be passed in.
 
     outtime[0] = r->t;	
     
@@ -1034,39 +1070,42 @@ int integration_function(double tstart, double tstep, double trange,
 	outstate[offset+5] = r->particles[j].vz;
     }
 
-    tstate last[N]; 
+    tstate last_state[N]; 
 
-    //reb_integrate(r, times[0]); // Not sure this is needed.
-    reb_update_acceleration(r); // This is needed to save the acceleration.
+    reb_update_acceleration(r); // This is needed to save the acceleration, which gets used in the first step.
  
     double tmax = tstart+trange;
+
+    // This is used to count the number of integration steps.
+    // This does not include the substeps
     int i = 1;
+
     const double dtsign = copysign(1.,r->dt);   // Used to determine integration direction
 
     while((r->t)*dtsign<tmax*dtsign){ 
 
-	fflush(stdout);
 	// This could be a helper function
 	// Save the previous completed state.
 	for(int j=0; j<N; j++){ 
-	    last[j].t = r->t;	
-	    last[j].x = r->particles[j].x;
-	    last[j].y = r->particles[j].y;
-	    last[j].z = r->particles[j].z;
-	    last[j].vx = r->particles[j].vx;
-	    last[j].vy = r->particles[j].vy;
-	    last[j].vz = r->particles[j].vz;
-	    last[j].ax = r->particles[j].ax;
-	    last[j].ay = r->particles[j].ay;
-	    last[j].az = r->particles[j].az;
+	    last_state[j].t = r->t;	
+	    last_state[j].x = r->particles[j].x;
+	    last_state[j].y = r->particles[j].y;
+	    last_state[j].z = r->particles[j].z;
+	    last_state[j].vx = r->particles[j].vx;
+	    last_state[j].vy = r->particles[j].vy;
+	    last_state[j].vz = r->particles[j].vz;
+	    last_state[j].ax = r->particles[j].ax;
+	    last_state[j].ay = r->particles[j].ay;
+	    last_state[j].az = r->particles[j].az;
 	}
 
 	// Integrate a step.  
 	reb_step(r);
 
 	// Store the results, including the substeps
-	store_function(r, 8*(i-1), N, last, outtime, outstate); //XYZ
+	store_function(r, 8*(i-1), N, last_state, outtime, outstate); //XYZ
 
+	// This might belong in store_function
 	if((n_out - i*8) < 8){
 	    n_out *= 2;
 	    outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
@@ -1080,8 +1119,8 @@ int integration_function(double tstart, double tstep, double trange,
     }
 
     // Reallocate the arrays to trim off unneede space.
-    //outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
-    //outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
+    outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
+    outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
 
     // save pointers to the results in the timestate struct
     ts->t = outtime;
@@ -1090,7 +1129,6 @@ int integration_function(double tstart, double tstep, double trange,
     ts->n_out = (i-1)*8;
 
     // explicitly free all the memory allocated by REBOUNDx
-
     //rebx_free(rebx);    
     //reb_free_simulation(r);
 
@@ -1107,7 +1145,7 @@ int integration_function(double tstart, double tstep, double trange,
 // * the b coefficients for all the particles,
 // * the last time step
 
-void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last, double* outtime, double* outstate){
+void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate){
     
     int N = r->N;
     int N3 = 3*N;
@@ -1115,18 +1153,34 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 
     // Store the time and state for each particle for last
     // completed step.
-    outtime[n_out] = last[0].t;
+    outtime[n_out] = last_state[0].t;
+
+    double r2 = last_state[0].x*last_state[0].x
+	+ last_state[0].y*last_state[0].y
+	+ last_state[0].z*last_state[0].z;
 
     for(int j=0; j<n_particles; j++){
 	// Rather than computing an offset, perhaps there should be
 	// an index for the next open slot.
 	int offset = (n_out*n_particles+j)*6;
-	outstate[offset+0] = last[j].x;
-	outstate[offset+1] = last[j].y;	
-	outstate[offset+2] = last[j].z;
-	outstate[offset+3] = last[j].vx;	
-	outstate[offset+4] = last[j].vy;
-	outstate[offset+5] = last[j].vz;	
+	outstate[offset+0] = last_state[j].x;
+	outstate[offset+1] = last_state[j].y;	
+	outstate[offset+2] = last_state[j].z;
+	outstate[offset+3] = last_state[j].vx;	
+	outstate[offset+4] = last_state[j].vy;
+	outstate[offset+5] = last_state[j].vz;	
+    }
+    
+    for(int j=0; j<n_particles; j++){
+	// Rather than computing an offset, perhaps there should be
+	// an index for the next open slot.
+	int offset = (n_out*n_particles+j)*6;
+	outstate[offset+0] = last_state[j].x;
+	outstate[offset+1] = last_state[j].y;	
+	outstate[offset+2] = last_state[j].z;
+	outstate[offset+3] = last_state[j].vx;	
+	outstate[offset+4] = last_state[j].vy;
+	outstate[offset+5] = last_state[j].vz;	
     }
     
     // Convenience variable.  The 'br' field contains the 
@@ -1143,17 +1197,17 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	const int k1 = 3*j+1;
 	const int k2 = 3*j+2;
 
-	x0[k0] = last[j].x;
-	x0[k1] = last[j].y;
-	x0[k2] = last[j].z;	
+	x0[k0] = last_state[j].x;
+	x0[k1] = last_state[j].y;
+	x0[k2] = last_state[j].z;	
 
-	v0[k0] = last[j].vx;
-	v0[k1] = last[j].vy;
-	v0[k2] = last[j].vz;	
+	v0[k0] = last_state[j].vx;
+	v0[k1] = last_state[j].vy;
+	v0[k2] = last_state[j].vz;	
 
-	a0[k0] = last[j].ax;
-	a0[k1] = last[j].ay;
-	a0[k2] = last[j].az;
+	a0[k0] = last_state[j].ax;
+	a0[k1] = last_state[j].ay;
+	a0[k2] = last_state[j].az;
 
     }
 

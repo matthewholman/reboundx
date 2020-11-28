@@ -5,6 +5,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "spk.h"
 #include "planets.h"
 
