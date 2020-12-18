@@ -284,30 +284,37 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Calculate acceleration due to sun and planets
     // Rearrange to get all the planet positions at once
+    // Arya, this loop and the loop starting at line 361
+    // are essentially the same.  The only difference is the
+    // call to ephem() vs ast_ephem().  The same is true of
+    // the loops for the variational particles.
+    // By making a wrapper function, with the same signature
+    // as ephem and ast_ephem, that calls ephem if 0<i<N_ephem
+    // and ast_ephem with i-N_ephem if N_ephem <= i < N_ephem + N_ast
+    // that would do it.  There are alternatives, of course.
     for (int i=0; i<*N_ephem; i++){
 
         // Get position and mass of massive body i.
         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
         for (int j=0; j<N_real; j++){
-  	  // Compute position vector of test particle j relative to massive body i.
-	  const double dx =  particles[j].x + (xo - x); 
-	  const double dy =  particles[j].y + (yo - y);
-	  const double dz =  particles[j].z + (zo - z);
-	  const double _r = sqrt(dx*dx + dy*dy + dz*dz);
-	  const double prefac = GM/(_r*_r*_r);
 
-  	  particles[j].ax -= prefac*dx;
-  	  particles[j].ay -= prefac*dy;
-  	  particles[j].az -= prefac*dz;
+	    // Compute position vector of test particle j relative to massive body i.
+	    const double dx =  particles[j].x + (xo - x); 
+	    const double dy =  particles[j].y + (yo - y);
+	    const double dz =  particles[j].z + (zo - z);
+	    const double _r = sqrt(dx*dx + dy*dy + dz*dz);
+	    const double prefac = GM/(_r*_r*_r);
+
+	    particles[j].ax -= prefac*dx;
+	    particles[j].ay -= prefac*dy;
+	    particles[j].az -= prefac*dz;
 
         }
     }
 
     // Calculate acceleration of variational particles due to sun and planets
     for (int i=0; i<*N_ephem; i++){
-
-	//break;
 
         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
 
@@ -382,8 +389,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Calculate acceleration of variational particles due to massive asteroids
     for (int i=0; i<*N_ast; i++){
 
-	//break;
-
         ast_ephem(i, t, &GM, &x, &y, &z); 
 
         for (int j=0; j<N_real; j++){ //loop over test particles
@@ -449,6 +454,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const double Re_eq = 6378.1263/au;
     // Unit vector to equatorial pole at the epoch
     // Clean this up!
+    // Note also that the pole orientation is not changing during
+    // the integration.
 
     double RAs =  359.87123273*M_PI/180.;
     double Decs =  89.88809752*M_PI/180.;
@@ -461,6 +468,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     double yp = -1.2513100974355823e-05;
     double zp =   0.9999981736277104;
 
+    //double xp =  0.0;
+    //double yp =  0.0;
+    //double zp =  1.0;
+    
     double incl = acos(zp);
     double longnode;
     if(xp != 0.0 || yp !=0.0) {    
@@ -558,7 +569,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
-	    //break;
+
 	    double ddx = particles[v].x;
 	    double ddy = particles[v].y;
 	    double ddz = particles[v].z;
@@ -598,8 +609,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     // Here is the treatment of the Sun's J2.
     // Borrowed code from gravitational_harmonics.
-    // Also assuming that Sun's pole is along the z
-    // axis.  This is not true.  Will correct soon.
 
     // The Sun center is reference for these calculations.
     xr = xs;  yr = ys;  zr = zs;
@@ -693,8 +702,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
 
-	    //break;
-
 	    double ddx = particles[v].x;
 	    double ddy = particles[v].y;
 	    double ddz = particles[v].z;
@@ -728,6 +735,68 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         } 
        
     }
+
+    // Here is the treatment of non-gravitational forces.
+
+    // The Sun center is reference for these calculations.
+    xr = xs;  yr = ys;  zr = zs;
+    vxr = vxs; vyr = vys; vzr = vzs;    
+
+    // The non-grav parameters are specific to each object being
+    // integrated.
+
+    // Normal asteroids
+    double A1 = 0.0;
+    double A2 = 0.0;
+    double A3 = 0.0;
+
+    // Apophis
+    //double A1 = 0.0;
+    //double A2 = -5.592839897872E-14;
+    //double A3 = 0.0;
+
+    // 2020 SO
+    //double A1 = 2.840852439404E-9; //0.0;
+    //double A2 = -2.521527931094E-10;
+    //double A3= 2.317289821804E-10;
+    
+    for (int j=0; j<N_real; j++){
+
+        const struct reb_particle p = particles[j];
+        double dx = p.x + (xo - xr);
+        double dy = p.y + (yo - yr);
+        double dz = p.z + (zo - zr);
+
+        const double r2 = dx*dx + dy*dy + dz*dz;
+        const double r = sqrt(r2);
+
+	const double g = 1.0/r2;
+
+	double dvx = p.vx + (vxo - vxr);
+	double dvy = p.vy + (vyo - vyr);
+	double dvz = p.vz + (vzo - vzr);
+
+	double hx = dy*dvz - dz*dvy;
+	double hy = dz*dvx - dx*dvz;
+	double hz = dx*dvy - dy*dvx;	
+
+	double h2 = hx*hx + hy*hy + hz*hz;
+	double h = sqrt(h2);
+
+	double tx = hy*dz - hz*dy;
+	double ty = hz*dx - hx*dz;
+	double tz = hx*dy - hy*dx;	
+	
+        const double t2 = tx*tx + ty*ty + tz*tz;
+        const double t = sqrt(t2);
+
+	particles[j].ax += A1*g*dx/r + A2*g*tx/t + A3*g*hx/h;
+        particles[j].ay += A1*g*dy/r + A2*g*ty/t + A3*g*hy/h;
+        particles[j].az += A1*g*dz/r + A2*g*tz/t + A3*g*hz/h;
+
+    }
+
+    
 
     // Here is the Solar GR treatment
     // The Sun is the reference for these calculations.    
@@ -825,8 +894,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
 	// Looping over variational particles
         for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
-
-	    //break;
 
 	    // variational particle coords
 	    double ddx = particles[v].x;
@@ -934,8 +1001,8 @@ int integration_function(double tstart, double tstep, double trange,
     r->collision_resolve = reb_collision_resolve_merge;
     r->gravity = REB_GRAVITY_NONE;
 
-    r->ri_ias15.min_dt = 5e-3;  // to avoid very small time steps
-    r->ri_ias15.epsilon = 1e-6; // to avoid convergence issue with geocentric orbits
+    r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
+    r->ri_ias15.epsilon = 1e-8; // to avoid convergence issue with geocentric orbits
     
     struct rebx_extras* rebx = rebx_attach(r);
 
