@@ -292,17 +292,27 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // as ephem and ast_ephem, that calls ephem if 0<i<N_ephem
     // and ast_ephem with i-N_ephem if N_ephem <= i < N_ephem + N_ast
     // that would do it.  There are alternatives, of course.
-    for (int i=0; i<*N_ephem; i++){
+
+    for (int i=0; i<*N_ephem+*N_ast; i++){
 
         // Get position and mass of massive body i.
-        ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+        if(i < *N_ephem){
+         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+        }
+        else{
+         // Get position and mass of asteroid i-N_ephem.
+         ast_ephem(i-*N_ephem, t, &GM, &x, &y, &z);
+
+	 // Translate massive asteroids from heliocentric to barycentric.
+	 x += xs; y += ys; z += zs;
+        }
 
         for (int j=0; j<N_real; j++){
 
 	    // Compute position vector of test particle j relative to massive body i.
-	    const double dx =  particles[j].x + (xo - x); 
-	    const double dy =  particles[j].y + (yo - y);
-	    const double dz =  particles[j].z + (zo - z);
+	    const double dx = particles[j].x + (xo - x); 
+	    const double dy = particles[j].y + (yo - y);
+	    const double dz = particles[j].z + (zo - z);
 	    const double _r = sqrt(dx*dx + dy*dy + dz*dz);
 	    const double prefac = GM/(_r*_r*_r);
 
@@ -314,9 +324,17 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
 
     // Calculate acceleration of variational particles due to sun and planets
-    for (int i=0; i<*N_ephem; i++){
+    for (int i=0; i<*N_ephem+*N_ast; i++){
 
-        ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+        if(i < *N_ephem){
+         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
+        }
+        else{
+         ast_ephem(i-*N_ephem, t, &GM, &x, &y, &z); 
+
+	 // Translate massive asteroids from heliocentric to barycentric.
+	 x += xs; y += ys; z += zs;
+        }
 
         for (int j=0; j<N_real; j++){ //loop over test particles
 
@@ -358,78 +376,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 		particles[v].az += Gmi * daz; 
 
 	    }
-        }
-    }
-
-
-    // Calculate acceleration due to massive asteroids
-    // Rearrange to get all the asteroid positions at once
-    for (int i=0; i<*N_ast; i++){
-
-        ast_ephem(i, t, &GM, &x, &y, &z); // Get position and mass of asteroid i.
-
-	// Translate massive asteroids from heliocentric to barycentric.
-	x += xs; y += ys; z += zs;
-	
-        for (int j=0; j<N_real; j++){
-  	  // Compute position vector of test particle j relative to massive body i.
-	    const double dx = particles[j].x + (xo - x);
-	    const double dy = particles[j].y + (yo - y);
-	    const double dz = particles[j].z + (zo - z); 	    	    
-            const double _r = sqrt(dx*dx + dy*dy + dz*dz);
-	    
-            const double prefac = GM/(_r*_r*_r);
-            particles[j].ax -= prefac*dx;
-            particles[j].ay -= prefac*dy;
-            particles[j].az -= prefac*dz;
-
-        }
-    }
-
-    // Calculate acceleration of variational particles due to massive asteroids
-    for (int i=0; i<*N_ast; i++){
-
-        ast_ephem(i, t, &GM, &x, &y, &z); 
-
-        for (int j=0; j<N_real; j++){ //loop over test particles
-
-           const double dx = particles[j].x + (xo - x);
-           const double dy = particles[j].y + (yo - y);
-           const double dz = particles[j].z + (zo - z);
-           const double r2 = dx*dx + dy*dy + dz*dz;
-           const double _r  = sqrt(r2);
-           const double r3inv = 1./(r2*_r);
-           const double r5inv = 3.*r3inv/r2;
-
-	   // Coefficients for variational equations
-	   const double dxdx = dx*dx*r5inv - r3inv;
-	   const double dydy = dy*dy*r5inv - r3inv;
-	   const double dzdz = dz*dz*r5inv - r3inv;
-	   const double dxdy = dx*dy*r5inv;
-	   const double dxdz = dx*dz*r5inv;
-	   const double dydz = dy*dz*r5inv;
-
-	   // Loop over variational particles
-           for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
-
-	       // Variational particle coords
-	       const double ddx = particles[v].x;
-	       const double ddy = particles[v].y;
-	       const double ddz = particles[v].z;
-	       const double Gmi = GM;
-
-	       // Matrix multiplication
-	       const double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
-	       const double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
-	       const double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
-
-	       // No variational mass contributions for test particles!
-
-	       particles[v].ax += Gmi * dax; 
-	       particles[v].ay += Gmi * day; 
-	       particles[v].az += Gmi * daz; 
-
-           }
         }
     }
 
