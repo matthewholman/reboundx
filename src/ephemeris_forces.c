@@ -223,6 +223,34 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
     
 }
 
+static void all_ephem(const int i, const double t, double* const GM, double* const x, double* const y, double* const z){
+
+    static const int N_ast = 16;
+    static const int N_ephem = 11;
+
+    static double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
+    static double GMs;
+    static double t_last = -1e99;
+    
+    double vx, vy, vz, ax, ay, az;
+    
+    // Get position and mass of massive body i.
+    if(i < N_ephem){
+	ephem(i, t, GM, x, y, z, &vx, &vy, &vz, &ax, &ay, &az); 
+    }else{
+	// Get position and mass of asteroid i-N_ephem.
+	ast_ephem(i-N_ephem, t, GM, x, y, z);
+
+	if(t != t_last){
+	    ephem(0, t, &GMs, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);
+	    t_last = t;
+	}
+
+	// Translate massive asteroids from heliocentric to barycentric.
+	*x += xs; *y += ys; *z += zs;
+    }
+}
+
 void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* const force, struct reb_particle* const particles, const int N){
 
     const double G = sim->G;
@@ -296,6 +324,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     for (int i=0; i<*N_ephem+*N_ast; i++){
 
         // Get position and mass of massive body i.
+	all_ephem(i, t, &GM, &x, &y, &z);
+
+	/*
         if(i < *N_ephem){
          ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
         }
@@ -306,6 +337,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	 // Translate massive asteroids from heliocentric to barycentric.
 	 x += xs; y += ys; z += zs;
         }
+	*/
 
         for (int j=0; j<N_real; j++){
 
@@ -326,6 +358,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Calculate acceleration of variational particles due to sun and planets
     for (int i=0; i<*N_ephem+*N_ast; i++){
 
+	all_ephem(i, t, &GM, &x, &y, &z);
+	
+	/*
         if(i < *N_ephem){
          ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
         }
@@ -335,6 +370,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	 // Translate massive asteroids from heliocentric to barycentric.
 	 x += xs; y += ys; z += zs;
         }
+	*/
 
         for (int j=0; j<N_real; j++){ //loop over test particles
 
@@ -379,6 +415,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
+    // We might move this into a somewhat separate part of the code,
+    // similar to how different extra forces are typically handled in
+    // reboundx
+    // 
     // Here is the treatment of the Earth's J2 and J4.
     // Borrowed code from gravitational_harmonics example.
     // Assumes the coordinates are geocentric.
@@ -553,6 +593,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         }
     }
 
+    // We might move this into a somewhat separate part of the code,
+    // similar to how different extra forces are typically handled in
+    // reboundx
     // Here is the treatment of the Sun's J2.
     // Borrowed code from gravitational_harmonics.
 
@@ -741,8 +784,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].az += A1*g*dz/r + A2*g*tz/t + A3*g*hz/h;
 
     }
-
-    
 
     // Here is the Solar GR treatment
     // The Sun is the reference for these calculations.    
@@ -939,14 +980,18 @@ int integration_function(double tstart, double tstep, double trange,
     struct reb_simulation* r = reb_create_simulation();
 
     // Set up simulation constants
+    // The gravitational constant should be set using the ephemeris routines,
+    // so that it is ensured to consistent with the units used in those routines.
     r->G = 0.295912208285591100E-03; // Gravitational constant (AU, solar masses, days)
     r->integrator = REB_INTEGRATOR_IAS15;
     r->heartbeat = NULL;
     r->display_data = NULL;
     r->collision = REB_COLLISION_NONE;  // This is important and needs to be considered carefully.
-    r->collision_resolve = reb_collision_resolve_merge;
+    r->collision_resolve = reb_collision_resolve_merge; // Not sure what this is for.
     r->gravity = REB_GRAVITY_NONE;
 
+    // These quantities are specific to IAS15.  Perhaps something more flexible could
+    // be done so that other REBOUND integration routines could be explored.
     r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
     r->ri_ias15.epsilon = 1e-8; // to avoid convergence issue with geocentric orbits
     
@@ -958,6 +1003,9 @@ int integration_function(double tstart, double tstep, double trange,
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "geocentric", geocentric);
 
+    // We are no longer using N_ephem and N_ast separately, only the sum.
+    // So we might combine them into a single value.
+    //
     // Set number of ephemeris bodies
     // This is currently a fixed number based on the number of bodies
     // included in the JPL ephemeris file.
@@ -969,7 +1017,8 @@ int integration_function(double tstart, double tstep, double trange,
     rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
 
     // Set speed of light in right units (set by G & initial conditions).
-    // Here we use default units of AU/(yr/2pi)
+    // The speed of light should be set using the ephemeris routines,
+    // so that it is ensured to consistent with the units used in those routines.
     rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
 
     int n_out = (int)8*fabs(trange/tstep);
