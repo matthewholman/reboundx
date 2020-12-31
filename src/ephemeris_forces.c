@@ -223,7 +223,11 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
     
 }
 
-static void all_ephem(const int i, const double t, double* const GM, double* const x, double* const y, double* const z){
+static void all_ephem(const int i, const double t, double* const GM,
+		      double* const x, double* const y, double* const z,
+		      double* const vx, double* const vy, double* const vz,
+		      double* const ax, double* const ay, double* const az
+		      ){    
 
     static const int N_ast = 16;
     static const int N_ephem = 11;
@@ -231,12 +235,23 @@ static void all_ephem(const int i, const double t, double* const GM, double* con
     static double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
     static double GMs;
     static double t_last = -1e99;
+    static double t_prev = -1e99;
+
+    // For any given step, using the IAS15 integrator,
+    // all_ephem will need to access positions and GM values
+    // for 27 bodies at 8 different times.
     
-    double vx, vy, vz, ax, ay, az;
+    //double vx, vy, vz, ax, ay, az;
+
+    //vx = NAN;
+
+    if(t != t_prev){
+	printf("%d %lf\n", i, t);
+    }
     
     // Get position and mass of massive body i.
     if(i < N_ephem){
-	ephem(i, t, GM, x, y, z, &vx, &vy, &vz, &ax, &ay, &az); 
+	ephem(i, t, GM, x, y, z, vx, vy, vz, ax, ay, az); 
     }else{
 	// Get position and mass of asteroid i-N_ephem.
 	ast_ephem(i-N_ephem, t, GM, x, y, z);
@@ -248,7 +263,10 @@ static void all_ephem(const int i, const double t, double* const GM, double* con
 
 	// Translate massive asteroids from heliocentric to barycentric.
 	*x += xs; *y += ys; *z += zs;
+	*vx = NAN; *vy = NAN; *vz = NAN;
+	*ax = NAN; *ay = NAN; *az = NAN;		
     }
+    t_prev = t;
 }
 
 void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* const force, struct reb_particle* const particles, const int N){
@@ -259,6 +277,11 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     const int N_real= N;
 //  const int N_var = sim->N - N;   //The N passed in is the number of real particles (sim->N - sim->N_var).
 
+    const double dt = sim->dt;
+    const double last_dt = sim->dt_last_done;
+    
+    printf("rebx_ephemeris_forces in %lf %lf %lf\n", t, dt, last_dt);
+    
     const int* const N_ephem = rebx_get_param(sim->extras, force->ap, "N_ephem");
     if (N_ephem == NULL){
         fprintf(stderr, "REBOUNDx Error: Need to set N_ephem for ephemeris_forces\n");
@@ -291,17 +314,15 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Get mass, position, velocity, and acceleration of the Earth and Sun
     // for later use.
     // The hard-wired constants should be changed.
-    double xe, ye, ze, vxe, vye, vze, axe, aye, aze;    
-    ephem(3, t, &GM, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
+    // Find a way to use all_ephem()
     
-    double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;    
-    ephem(0, t, &GM, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);     
-
     // The offset position is used to adjust the particle positions.
     // The options are the barycenter (default) and geocenter.
     double xo, yo, zo, vxo, vyo, vzo;
     if(*geo == 1){
 	// geocentric
+	double xe, ye, ze, vxe, vye, vze, axe, aye, aze;    
+	all_ephem(3, t, &GM, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
 	xo = xe;    yo = ye;    zo = ze;
 	vxo = vxe;  vyo = vye;  vzo = vze;
     }else{
@@ -324,7 +345,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     for (int i=0; i<*N_ephem+*N_ast; i++){
 
         // Get position and mass of massive body i.
-	all_ephem(i, t, &GM, &x, &y, &z);
+	
+	all_ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az);
 
 	/*
         if(i < *N_ephem){
@@ -358,7 +380,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Calculate acceleration of variational particles due to sun and planets
     for (int i=0; i<*N_ephem+*N_ast; i++){
 
-	all_ephem(i, t, &GM, &x, &y, &z);
+	all_ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az);	
 	
 	/*
         if(i < *N_ephem){
@@ -428,7 +450,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     //
 
     // The geocenter is the reference for the Earth J2/J4 calculations.
-    double xr, yr, zr, vxr, vyr, vzr;
+    double xe, ye, ze, vxe, vye, vze, axe, aye, aze;    
+    all_ephem(3, t, &GM, &xe, &ye, &ze, &vxe, &vye, &vze, &axe, &aye, &aze);
+
+    double xr, yr, zr, vxr, vyr, vzr, axr, ayr, azr;
     xr = xe;  yr = ye;  zr = ze;
 
     // Hard-coded constants.  BEWARE!
@@ -600,7 +625,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Borrowed code from gravitational_harmonics.
 
     // The Sun center is reference for these calculations.
-    xr = xs;  yr = ys;  zr = zs;
+
+    //all_ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az);	    
+    all_ephem(0, t, &GM, &xr, &yr, &zr, &vxr, &vyr, &vzr, &axr, &ayr, &azr);	    
 
     // Hard-coded constants.  BEWARE!
     // Clean up on aisle 3!
@@ -728,6 +755,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Here is the treatment of non-gravitational forces.
 
     // The Sun center is reference for these calculations.
+    double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;    
+    all_ephem(0, t, &GM, &xs, &ys, &zs, &vxs, &vys, &vzs, &axs, &ays, &azs);
     xr = xs;  yr = ys;  zr = zs;
     vxr = vxs; vyr = vys; vzr = vzs;    
 
@@ -786,7 +815,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
 
     // Here is the Solar GR treatment
-    // The Sun is the reference for these calculations.    
+    // The Sun is the reference for these calculations.
     xr  = xs;  yr  = ys;  zr = zs;
     vxr = vxs; vyr = vys; vzr = vzs;
 
@@ -919,6 +948,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
       }
 
     }
+
+    printf("rebx_ephemeris_forces out %lf %lf\n", t, dt);  
 
 }
 
@@ -1134,6 +1165,7 @@ int integration_function(double tstart, double tstep, double trange,
 
     tstate last_state[N]; 
 
+    printf("reb_update_acceleration 1\n");        
     reb_update_acceleration(r); // This is needed to save the acceleration, which gets used in the first step.
  
     double tmax = tstart+trange;
@@ -1161,8 +1193,10 @@ int integration_function(double tstart, double tstep, double trange,
 	    last_state[j].az = r->particles[j].az;
 	}
 
-	// Integrate a step.  
+	// Integrate a step.
+	printf("reb_step in\n");
 	reb_step(r);
+	printf("reb_step out\n");	
 
 	// Store the results, including the substeps
 	store_function(r, 8*(i-1), N, last_state, outtime, outstate); //XYZ
@@ -1174,7 +1208,9 @@ int integration_function(double tstart, double tstep, double trange,
 	    outtime  = (double *) realloc(outtime, n_out*sizeof(double));	    
 	}
 
+	printf("reb_update_acceleration 2 in\n");
 	reb_update_acceleration(r); // This is needed to save the acceleration.
+	printf("reb_update_acceleration 2 out\n");
 
 	i++;
 
