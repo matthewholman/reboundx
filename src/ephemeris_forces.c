@@ -1,4 +1,3 @@
-
 /** * @file ephemeris_forces.c
  * @brief   A routine for ephemeris-quality force calculations.
  * @author  Matthew Holman <mholman@cfa.harvard.edu>
@@ -978,6 +977,8 @@ typedef struct {
 // Gauss Radau spacings
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
+void heartbeat(struct reb_simulation* r);
+
 // integration_function
 // tstart: integration start time in tdb
 // tstep: suggested initial time step (days)
@@ -1001,7 +1002,7 @@ int integration_function(double tstart, double tstep, double trange,
     // so that it is ensured to consistent with the units used in those routines.
     r->G = 0.295912208285591100E-03; // Gravitational constant (AU, solar masses, days)
     r->integrator = REB_INTEGRATOR_IAS15;
-    r->heartbeat = NULL;
+    r->heartbeat = heartbeat;
     r->display_data = NULL;
     r->collision = REB_COLLISION_NONE;  // This is important and needs to be considered carefully.
     r->collision_resolve = reb_collision_resolve_merge; // Not sure what this is for.
@@ -1016,6 +1017,7 @@ int integration_function(double tstart, double tstep, double trange,
 
     // Also add "ephemeris_forces" 
     struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
+    printf("ephem_forces address: %p\n", ephem_forces);    
     rebx_add_force(rebx, ephem_forces);
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "geocentric", geocentric);
@@ -1038,6 +1040,8 @@ int integration_function(double tstart, double tstep, double trange,
     // so that it is ensured to consistent with the units used in those routines.
     rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
 
+    rebx_set_param_pointer(rebx, &ephem_forces->ap, "timestate", ts);
+
     int n_out = (int)8*fabs(trange/tstep);
 
     // Allocate arrays
@@ -1052,14 +1056,17 @@ int integration_function(double tstart, double tstep, double trange,
 	outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
     }
 
+    printf("outstate address: %p\n", outstate);    
+
     if(outtime == NULL){    
 	outtime  = (double *) malloc(n_out*sizeof(double));
     }else{
 	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
     }
 
-    rebx_set_param_int(rebx, &ephem_forces->ap, "n_out", 0);
-    rebx_set_param_pointer(rebx, &ephem_forces->ap, "outstate", outstate);
+    ts->t = outtime;
+    ts->state = outstate;
+    ts->n_particles = n_particles;
 
     // Add and initialize particles    
     for(int i=0; i<n_particles; i++){
@@ -1149,11 +1156,10 @@ int integration_function(double tstart, double tstep, double trange,
 	outstate[offset+5] = r->particles[j].vz;
     }
 
-    double* restrict const x0 = r->ri_ias15.x0; 
-    double* restrict const v0 = r->ri_ias15.v0; 
-    double* restrict const a0 = r->ri_ias15.a0;
+    tstate* last_state = (tstate*) malloc(N*sizeof(tstate));
 
-    tstate last_state[N]; 
+    rebx_set_param_pointer(rebx, &ephem_forces->ap, "last_state", last_state);
+    printf("last_state address: %p\n", last_state);        
 
     reb_update_acceleration(r); // This is needed to save the acceleration, which gets used in the first step.
  
@@ -1212,26 +1218,9 @@ int integration_function(double tstart, double tstep, double trange,
 	    last_state[j].az = r->particles[j].az;
 	}
 
-	printf("here1  %lf\n", r->t);
-	for(int j=0; j<n_particles; j++){
-	    printf("%d %.16le %.16le %.16le ", j, r->particles[j].x, r->particles[j].y, r->particles[j].z);	    
-	    printf("%d %.16le %.16le %.16le ", j, r->particles[j].vx, r->particles[j].vy, r->particles[j].vz);	    
-	    printf("%d %.16le %.16le %.16le\n", j, r->particles[j].ax, r->particles[j].ay, r->particles[j].az);
-	}
-	printf("there1 %lf\n", r->t);
-	
 	// Integrate a step.
-	reb_step(r);
-
-	for(int j=0; j<n_particles; j++){
-
-	    const int k0 = 3*j+0;
-	    const int k1 = 3*j+1;
-	    const int k2 = 3*j+2;
-
-	    printf("%d %.16le %.16le %.16le\n", x0[k0], x0[k1], x0[k2]);
-	    fflush(stdout);
-	}
+	//reb_step(r);
+	reb_integrate(r, r->t + r->dt);	
 
 	// Store the results, including the substeps
 	store_function(r, 8*(i-1), N, last_state, outtime, outstate); //XYZ
@@ -1243,28 +1232,13 @@ int integration_function(double tstart, double tstep, double trange,
 	    outtime  = (double *) realloc(outtime, n_out*sizeof(double));	    
 	}
 
-	printf("here2  %lf\n", r->t);
-	for(int j=0; j<n_particles; j++){
-	    printf("%d %.16le %.16le %.16le ", j, r->particles[j].x, r->particles[j].y, r->particles[j].z);	    
-	    printf("%d %.16le %.16le %.16le ", j, r->particles[j].vx, r->particles[j].vy, r->particles[j].vz);	    
-	    printf("%d %.16le %.16le %.16le\n", j, r->particles[j].ax, r->particles[j].ay, r->particles[j].az);
-	}
-	printf("there2 %lf\n", r->t);	
-
 	reb_update_acceleration(r); // This is needed to save the acceleration.
-
-	printf("here3  %lf\n", r->t);
-	for(int j=0; j<n_particles; j++){
-	    printf("%d %.16le %.16le %.16le\n", j, r->particles[j].ax, r->particles[j].ay, r->particles[j].az);
-	}
-	printf("there3 %lf\n", r->t);	
-	
 
 	i++;
 
     }
 
-    // Reallocate the arrays to trim off unneede space.
+    // Reallocate the arrays to trim off unneeded space.
     outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
     outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
 
@@ -1283,13 +1257,75 @@ int integration_function(double tstart, double tstep, double trange,
 }
 
 void heartbeat(struct reb_simulation* r){
-    if (reb_output_check(r, 10.)){
-        reb_integrator_synchronize(r);
+    static int N;
+    static int n_out = 100;
+    static int n_calls = 0;
 
-        FILE* g = fopen("states.txt","a");
-        fprintf(g,"%e\n",r->t);
-        fclose(g);
-	reb_output_ascii(r, "states.txt");
+    static int n_particles;
+
+    static double* outtime;
+    static double* outstate;    
+
+    N = r->N;
+
+    n_particles = N;
+    
+    // Allocate arrays
+
+    // Let's see if we can rearrange this to make it
+    // work with a heartbeat function
+    // 3. Call store_function if a step has been completed
+    // 4. Call reb_update_acceleration
+    // 1. Store the state in order to be able to
+    //    recompute the intermediate steps.
+
+    struct rebx_force* ephem_forces = rebx_get_force(r->extras, "ephemeris_forces");
+
+    timestate* ts = rebx_get_param(r->extras, ephem_forces->ap, "timestate");
+
+    outtime = ts->t;
+    outstate = ts->state;
+
+    printf("ephem_forces address: %p\n", ephem_forces);
+    //double* outstate = rebx_get_param(r->extras, ephem_forces->ap, "outstate");
+    printf("outstate address: %p\n", outstate);        
+    //static double* outstate = NULL;
+
+    tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");
+    printf("last_state address inside: %p\n", last_state);            
+
+    /*
+    if(outtime == NULL){    
+	outtime  = (double *) malloc(n_out*sizeof(double));
+    }else{
+	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
+    }
+    */
+    
+    if(last_state == NULL){
+	printf("heartbeat alloc\n");
+	last_state = (tstate *) malloc(sizeof(tstate)*N);    	
+    }
+
+    printf("heartbeat: %lf %lf\n",r->t, last_state[0].t);
+    
+    if(last_state[0].t != r->t){
+	printf("store last_state %d\n", n_calls);
+	printf("store steps done %d\n", r->steps_done);
+	for(int j=0; j<N; j++){ 
+	    last_state[j].t = r->t;	
+	    last_state[j].x = r->particles[j].x;
+	    last_state[j].y = r->particles[j].y;
+	    last_state[j].z = r->particles[j].z;
+	    last_state[j].vx = r->particles[j].vx;
+	    last_state[j].vy = r->particles[j].vy;
+	    last_state[j].vz = r->particles[j].vz;
+	    last_state[j].ax = r->particles[j].ax;
+	    last_state[j].ay = r->particles[j].ay;
+	    last_state[j].az = r->particles[j].az;
+	}
+
+	n_calls++;
     }
 }
 

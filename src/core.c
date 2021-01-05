@@ -87,8 +87,8 @@ void rebx_register_default_params(struct rebx_extras* rebx){
     rebx_register_param(rebx, "N_ephem", REBX_TYPE_INT);
     rebx_register_param(rebx, "N_ast", REBX_TYPE_INT);
     rebx_register_param(rebx, "geocentric", REBX_TYPE_INT);
-    rebx_register_param(rebx, "outstate", REBX_TYPE_POINTER);
-    rebx_register_param(rebx, "n_out", REBX_TYPE_INT);        
+    rebx_register_param(rebx, "timestate", REBX_TYPE_POINTER);
+    rebx_register_param(rebx, "last_state", REBX_TYPE_POINTER);        
 }
 
 void rebx_register_param(struct rebx_extras* const rebx, const char* name, enum rebx_param_type type){
