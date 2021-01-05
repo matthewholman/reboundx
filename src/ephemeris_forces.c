@@ -1287,9 +1287,7 @@ void heartbeat(struct reb_simulation* r){
     outstate = ts->state;
 
     printf("ephem_forces address: %p\n", ephem_forces);
-    //double* outstate = rebx_get_param(r->extras, ephem_forces->ap, "outstate");
     printf("outstate address: %p\n", outstate);        
-    //static double* outstate = NULL;
 
     tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");
     printf("last_state address inside: %p\n", last_state);            
