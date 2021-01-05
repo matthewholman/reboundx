@@ -95,7 +95,7 @@ int ebody[11] = {
 // Added vx, vy, vz for GR stuff (2020 Feb 27)
 // Consolidated the routine, removing the if block.
 //
-void ephem(const int i, const double jde, double* const GM,
+static void ephem(const int i, const double jde, double* const GM,
 	   double* const x, double* const y, double* const z,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az){
@@ -278,7 +278,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
     
     const int* const N_ast = rebx_get_param(sim->extras, force->ap, "N_ast");
-    if (N_ephem == NULL){
+    if (N_ast == NULL){
         fprintf(stderr, "REBOUNDx Error: Need to set N_ast for ephemeris_forces\n");
         return;
     }
