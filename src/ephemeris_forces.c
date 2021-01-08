@@ -95,7 +95,7 @@ int ebody[11] = {
 // Added vx, vy, vz for GR stuff (2020 Feb 27)
 // Consolidated the routine, removing the if block.
 //
-void ephem(const int i, const double jde, double* const GM,
+static void ephem(const int i, const double jde, double* const GM,
 	   double* const x, double* const y, double* const z,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az){
