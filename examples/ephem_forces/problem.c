@@ -64,48 +64,28 @@ int main(int argc, char* argv[]){
     tsp->t = NULL;
 
     if(tstart >= tepoch){
-     integration_function(tepoch, tstep, trange+tstart-tepoch,
-     //integration_function(tstart, tstep, trange,
-      			  geocentric,
-			  n_particles,
-			  instate,             //ICs in instate correpond to tepoch
-			  tsp);
+	integration_function(tepoch, tstep, trange+tstart-tepoch,
+			     //integration_function(tstart, tstep, trange,
+			     geocentric,
+			     n_particles,
+			     instate,             //ICs in instate correpond to tepoch
+			     tsp);
 
-     n_out = tsp->n_out;
-     outtime = tsp->t;
-     outstate = tsp->state;
+	n_out = tsp->n_out;
+	outtime = tsp->t;
+	outstate = tsp->state;
 
-     for(int i=0; i<n_out; i++){
-	 int offset = i*7*n_particles*6; //XYZ
-	 for(int j=0; j<1; j++){ 
-	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
-	     fprintf(g,"%lf ", outtime[i]);
-	     fprintf(g,"%3d ", j);
-	     for(int k=0; k<6; k++){
-		 fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
-	     }
-	     fprintf(g,"\n");
+	for(int i=0; i<n_out; i++){
+	    int offset = i*7*n_particles*6; //XYZ
+	    //for(int j=0; j<1; j++){ 
+	    for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%3d ", j);
+		for(int k=0; k<6; k++){
+		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
+		}
+		fprintf(g,"\n");
 	 }
-	 //fprintf(g,"%lf ", outtime[i]);
-	 
-	 for(int j=1; j<0; j++){ 
-	 //for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
-	     //fprintf(g,"%3d ", j);
-	     
-	     for(int k=0; k<6; k++){
-		 fprintf(g,"%28.16e ", outstate[offset+6*j+k] - (outstate[offset+6*0+k] + scale*outstate[offset+6*(j+6)+k]));		 
-	     }
-	     /*
-	     fprintf(g,"%lf ", outtime[i]);	     
-	     fprintf(g,"%3d ", (j+6));
-	     for(int k=0; k<6; k++){
-		 fprintf(g,"%28.16e ", outstate[offset+6*0+k] + outstate[offset+6*(j+6)+k]);
-	     }
-	     fprintf(g,"\n");
-	     */
-	 }
-	 //fprintf(g,"\n");
-
      }
      
     }else{

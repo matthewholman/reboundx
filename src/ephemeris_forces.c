@@ -214,12 +214,21 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
 
     }
 
+    fflush(stdout);
     *GM = JPL_GM[i];
     spk_calc(spl, i, jde, &pos);          
     *x = pos.u[0];
     *y = pos.u[1];
     *z = pos.u[2];
+    fflush(stdout);    
     
+}
+
+int number_bodies(int* N_ephem, int* N_ast){
+    *N_ephem = 11;
+    *N_ast = 16;
+
+    return(*N_ephem + *N_ast);
 }
 
 static void all_ephem(const int i, const double t, double* const GM,
@@ -228,13 +237,17 @@ static void all_ephem(const int i, const double t, double* const GM,
 		      double* const ax, double* const ay, double* const az
 		      ){    
 
-    static const int N_ast = 16;
-    static const int N_ephem = 11;
+    int number_bodies(int* N_ephem, int* N_ast);
+    static int N_ast = -1;
+    static int N_ephem = -1;
+
+    if(N_ast == -1 || N_ephem == -1){
+	number_bodies(&N_ephem, &N_ast);
+    }
 
     static double xs, ys, zs, vxs, vys, vzs, axs, ays, azs;
     static double GMs;
     static double t_last = -1e99;
-    static double t_prev = -1e99;
 
     // For any given step, using the IAS15 integrator,
     // all_ephem will need to access positions and GM values
@@ -242,7 +255,7 @@ static void all_ephem(const int i, const double t, double* const GM,
     
     // Get position and mass of massive body i.
     if(i < N_ephem){
-	ephem(i, t, GM, x, y, z, vx, vy, vz, ax, ay, az); 
+	ephem(i, t, GM, x, y, z, vx, vy, vz, ax, ay, az);
     }else{
 	// Get position and mass of asteroid i-N_ephem.
 	ast_ephem(i-N_ephem, t, GM, x, y, z);
@@ -257,7 +270,7 @@ static void all_ephem(const int i, const double t, double* const GM,
 	*vx = NAN; *vy = NAN; *vz = NAN;
 	*ax = NAN; *ay = NAN; *az = NAN;		
     }
-    t_prev = t;
+    
 }
 
 void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* const force, struct reb_particle* const particles, const int N){
@@ -270,19 +283,13 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     const double dt = sim->dt;
     const double last_dt = sim->dt_last_done;
-    
-    const int* const N_ephem = rebx_get_param(sim->extras, force->ap, "N_ephem");
-    if (N_ephem == NULL){
-        fprintf(stderr, "REBOUNDx Error: Need to set N_ephem for ephemeris_forces\n");
-        return;
-    }
-    
-    const int* const N_ast = rebx_get_param(sim->extras, force->ap, "N_ast");
-    if (N_ephem == NULL){
-        fprintf(stderr, "REBOUNDx Error: Need to set N_ast for ephemeris_forces\n");
-        return;
-    }
 
+    int N_ephem, N_ast;
+    int N_tot;
+    int number_bodies(int* N_ephem, int* N_ast);
+
+    N_tot = number_bodies(&N_ephem, &N_ast);
+    
     double* c = rebx_get_param(sim->extras, force->ap, "c");
     if (c == NULL){
         reb_error(sim, "REBOUNDx Error: Need to set speed of light in gr effect.  See examples in documentation.\n");
@@ -303,7 +310,6 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     // Get mass, position, velocity, and acceleration of the Earth and Sun
     // for later use.
     // The hard-wired constants should be changed.
-    // Find a way to use all_ephem()
     
     // The offset position is used to adjust the particle positions.
     // The options are the barycenter (default) and geocenter.
@@ -311,10 +317,8 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
     if(*geo == 1){
 	// geocentric
-	//double xe, ye, ze, vxe, vye, vze, axe, aye, aze;    
 	all_ephem(3, t, &GM, &xo, &yo, &zo, &vxo, &vyo, &vzo, &axo, &ayo, &azo);
-	//xo = xe;    yo = ye;    zo = ze;
-	//vxo = vxe;  vyo = vye;  vzo = vze;
+
 	// This is the indirect term for geocentric equations
 	// of motion.
 	for (int j=0; j<N_real; j++){    
@@ -331,35 +335,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	vxo = 0.0; vyo = 0.0; vzo = 0.0;      
     }
 
-    // Calculate acceleration due to sun and planets
-    // Rearrange to get all the planet positions at once
-    // Arya, this loop and the loop starting at line 361
-    // are essentially the same.  The only difference is the
-    // call to ephem() vs ast_ephem().  The same is true of
-    // the loops for the variational particles.
-    // By making a wrapper function, with the same signature
-    // as ephem and ast_ephem, that calls ephem if 0<i<N_ephem
-    // and ast_ephem with i-N_ephem if N_ephem <= i < N_ephem + N_ast
-    // that would do it.  There are alternatives, of course.
-
-    for (int i=0; i<*N_ephem+*N_ast; i++){
+    for (int i=0; i<N_tot; i++){
 
         // Get position and mass of massive body i.
-	
 	all_ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az);
-
-	/*
-        if(i < *N_ephem){
-         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
-        }
-        else{
-         // Get position and mass of asteroid i-N_ephem.
-         ast_ephem(i-*N_ephem, t, &GM, &x, &y, &z);
-
-	 // Translate massive asteroids from heliocentric to barycentric.
-	 x += xs; y += ys; z += zs;
-        }
-	*/
 
         for (int j=0; j<N_real; j++){
 
@@ -378,22 +357,11 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
 
     // Calculate acceleration of variational particles due to sun and planets
-    for (int i=0; i<*N_ephem+*N_ast; i++){
+    for (int i=0; i<N_tot; i++){
 
+        // Get position and mass of massive body i.	
 	all_ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az);	
 	
-	/*
-        if(i < *N_ephem){
-         ephem(i, t, &GM, &x, &y, &z, &vx, &vy, &vz, &ax, &ay, &az); 
-        }
-        else{
-         ast_ephem(i-*N_ephem, t, &GM, &x, &y, &z); 
-
-	 // Translate massive asteroids from heliocentric to barycentric.
-	 x += xs; y += ys; z += zs;
-        }
-	*/
-
         for (int j=0; j<N_real; j++){ //loop over test particles
 
 	    const double dx = particles[j].x + (xo - x);
@@ -970,7 +938,7 @@ typedef struct {
 typedef struct {
     double* t;
     double* state;
-    int n_out;
+    int n_alloc;
     int n_particles;
 } timestate;
 
@@ -993,8 +961,8 @@ int integration_function(double tstart, double tstep, double trange,
 			 double* instate,
 			 timestate *ts){
 
-    void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate);
-    void store_function_v2(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate);    
+    void store_function(struct reb_simulation* r, int n_out);
+
     struct reb_simulation* r = reb_create_simulation();
 
     // Set up simulation constants
@@ -1017,23 +985,9 @@ int integration_function(double tstart, double tstep, double trange,
 
     // Also add "ephemeris_forces" 
     struct rebx_force* ephem_forces = rebx_load_force(rebx, "ephemeris_forces");
-    printf("ephem_forces address: %p\n", ephem_forces);    
     rebx_add_force(rebx, ephem_forces);
 
     rebx_set_param_int(rebx, &ephem_forces->ap, "geocentric", geocentric);
-
-    // We are no longer using N_ephem and N_ast separately, only the sum.
-    // So we might combine them into a single value.
-    //
-    // Set number of ephemeris bodies
-    // This is currently a fixed number based on the number of bodies
-    // included in the JPL ephemeris file.
-    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ephem", 11);
-
-    // Set number of massive asteroids
-    // This is currently a fixed number based on the number of asteroids
-    // included in the JPL ephemeris file.
-    rebx_set_param_int(rebx, &ephem_forces->ap, "N_ast", 16);
 
     // Set speed of light in right units (set by G & initial conditions).
     // The speed of light should be set using the ephemeris routines,
@@ -1041,32 +995,6 @@ int integration_function(double tstart, double tstep, double trange,
     rebx_set_param_double(rebx, &ephem_forces->ap, "c", 173.144632674);
 
     rebx_set_param_pointer(rebx, &ephem_forces->ap, "timestate", ts);
-
-    int n_out = (int)8*fabs(trange/tstep);
-
-    // Allocate arrays
-    static double* outstate = NULL;
-    static double* outtime = NULL;
-
-    // This might belong in store_function
-    // Or in some kind of init() function
-    if(outstate == NULL){
-	outstate = (double *) malloc(7*n_out*n_particles*6*sizeof(double));
-    }else{
-	outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
-    }
-
-    printf("outstate address: %p\n", outstate);    
-
-    if(outtime == NULL){    
-	outtime  = (double *) malloc(n_out*sizeof(double));
-    }else{
-	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
-    }
-
-    ts->t = outtime;
-    ts->state = outstate;
-    ts->n_particles = n_particles;
 
     // Add and initialize particles    
     for(int i=0; i<n_particles; i++){
@@ -1144,187 +1072,134 @@ int integration_function(double tstart, double tstep, double trange,
     r->dt = tstep;    // time step in days, this is just an initial value.  It probably does not need
                       // to be passed in.
 
-    outtime[0] = r->t;	
-    
-    for(int j=0; j<N; j++){
-	int offset = j*6;
-	outstate[offset+0] = r->particles[j].x;
-	outstate[offset+1] = r->particles[j].y;
-	outstate[offset+2] = r->particles[j].z;
-	outstate[offset+3] = r->particles[j].vx;
-	outstate[offset+4] = r->particles[j].vy;
-	outstate[offset+5] = r->particles[j].vz;
+    //int n_out = (int)8*fabs(trange/tstep);
+    int n_alloc = 0;
+
+    // Allocate arrays
+    static double* outstate = NULL;
+    static double* outtime = NULL;
+
+    /*
+    if(outstate == NULL){
+	outstate = (double *) malloc(7*n_alloc*n_particles*6*sizeof(double));
     }
+    
+    if(outtime == NULL){    
+	outtime  = (double *) malloc(n_alloc*sizeof(double));
+    }
+    */
+
+    ts->t = outtime;
+    ts->state = outstate;
+    ts->n_alloc = n_alloc;    
+
+    ts->n_particles = n_particles;
 
     tstate* last_state = (tstate*) malloc(N*sizeof(tstate));
 
     rebx_set_param_pointer(rebx, &ephem_forces->ap, "last_state", last_state);
-    printf("last_state address: %p\n", last_state);        
 
-    reb_update_acceleration(r); // This is needed to save the acceleration, which gets used in the first step.
- 
     double tmax = tstart+trange;
-
-    // This is used to count the number of integration steps.
-    // This does not include the substeps
-    int i = 1;
 
     const double dtsign = copysign(1.,r->dt);   // Used to determine integration direction
 
-    // If we were calling reb_integrate here it would
-    // call reb_run_heartbeat
-    // loop with a stop time condition:
-    //     reb_step
-    //     reb_run_heartbeat
-    //
-    // Below we do the following in a loop
-    // 1. Store the previous completed state
-    //    in order to be able to recompute the intermediate
-    //    steps from the coefficients.
-    // 2. Call reb_step
-    // 3. Call store_function
-    // 4. Call reb_update_acceleration
-    //
-    // Let's see if we can rearrange this to make it
-    // work with a heartbeat function
-    // 3. Call store_function if a step has been completed
-    // 4. Call reb_update_acceleration, if needed
-    // 1. Store the completed state in order to be
-    //    able to recompute the intermediate steps.
-
-    // 2. Call reb_step
-    
-    // 3. Call store_function if a step has been completed
-    // 4. Call reb_update_acceleration, if needed
-    // 1. Store the previous completed state
-    //    in order to be able to recompute the intermediate
-    //    steps from the coefficients.
-
-
+    /*
     while((r->t)*dtsign<tmax*dtsign){ 
-
-	// This could be a helper function
-	// Save the previous completed state.
-	for(int j=0; j<N; j++){ 
-	    last_state[j].t = r->t;	
-	    last_state[j].x = r->particles[j].x;
-	    last_state[j].y = r->particles[j].y;
-	    last_state[j].z = r->particles[j].z;
-	    last_state[j].vx = r->particles[j].vx;
-	    last_state[j].vy = r->particles[j].vy;
-	    last_state[j].vz = r->particles[j].vz;
-	    last_state[j].ax = r->particles[j].ax;
-	    last_state[j].ay = r->particles[j].ay;
-	    last_state[j].az = r->particles[j].az;
-	}
 
 	// Integrate a step.
 	//reb_step(r);
-	reb_integrate(r, r->t + r->dt);	
+	reb_integrate(r, r->t + r->dt);
 
-	// Store the results, including the substeps
-	store_function(r, 8*(i-1), N, last_state, outtime, outstate); //XYZ
-
-	// This might belong in store_function
-	if((n_out - i*8) < 8){
-	    n_out *= 2;
-	    outstate = (double *) realloc(outstate, 7*n_out*n_particles*6*sizeof(double));
-	    outtime  = (double *) realloc(outtime, n_out*sizeof(double));	    
-	}
-
-	reb_update_acceleration(r); // This is needed to save the acceleration.
-
-	i++;
+	//reb_update_acceleration(r); // This is needed to save the acceleration.
 
     }
+    */
+
+    reb_integrate(r, tmax);    
+
+    //n_particles = ts->n_particles;
+    
+    outtime = ts->t;
+    outstate = ts->state;
 
     // Reallocate the arrays to trim off unneeded space.
-    outstate = (double *) realloc(outstate, 7*8*(i-1)*n_particles*6*sizeof(double));
-    outtime  = (double *) realloc(outtime, 8*(i-1)*sizeof(double));	    
+    outstate = (double *) realloc(outstate, 7*8*r->steps_done*n_particles*6*sizeof(double));
+    outtime  = (double *) realloc(outtime, 8*r->steps_done*sizeof(double));
 
     // save pointers to the results in the timestate struct
     ts->t = outtime;
     ts->state = outstate;
+
     ts->n_particles = n_particles;
-    ts->n_out = (i-1)*8;
+    ts->n_alloc = 8*r->steps_done;
 
     // explicitly free all the memory allocated by REBOUNDx
     //rebx_free(rebx);    
     //reb_free_simulation(r);
 
-    fflush(stdout);
     return(1);
 }
 
 void heartbeat(struct reb_simulation* r){
-    static int N;
-    static int n_out = 100;
-    static int n_calls = 0;
 
-    static int n_particles;
+    void store_function(struct reb_simulation* r, int n_out);
+    
+    static int N;
+
+    static int last_steps_done = 0;
 
     static double* outtime;
-    static double* outstate;    
-
-    N = r->N;
-
-    n_particles = N;
+    static double* outstate;
     
-    // Allocate arrays
+    N = r->N;
+    int n_particles = N;
 
-    // Let's see if we can rearrange this to make it
-    // work with a heartbeat function
     // 3. Call store_function if a step has been completed
     // 4. Call reb_update_acceleration
     // 1. Store the state in order to be able to
     //    recompute the intermediate steps.
 
     struct rebx_force* ephem_forces = rebx_get_force(r->extras, "ephemeris_forces");
-
     timestate* ts = rebx_get_param(r->extras, ephem_forces->ap, "timestate");
-
-    outtime = ts->t;
-    outstate = ts->state;
-
-    printf("ephem_forces address: %p\n", ephem_forces);
-    printf("outstate address: %p\n", outstate);        
-
     tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");
-    printf("last_state address inside: %p\n", last_state);            
 
     /*
+    if(outstate == NULL){
+	outstate = (double *) malloc(7*n_out*n_particles*6*sizeof(double));
+    }
+    
     if(outtime == NULL){    
 	outtime  = (double *) malloc(n_out*sizeof(double));
-    }else{
-	outtime  = (double *) realloc(outtime, n_out*sizeof(double));	
     }
     */
+
+    // outtime and outstate are not directly needed here.
+    outtime = ts->t;
+    outstate = ts->state;
     
-    if(last_state == NULL){
-	printf("heartbeat alloc\n");
-	last_state = (tstate *) malloc(sizeof(tstate)*N);    	
+    if(r->steps_done > last_steps_done){
+	store_function(r, 8*(r->steps_done-1));
     }
 
-    printf("heartbeat: %lf %lf\n",r->t, last_state[0].t);
-    
-    if(last_state[0].t != r->t){
-	printf("store last_state %d\n", n_calls);
-	printf("store steps done %d\n", r->steps_done);
-	for(int j=0; j<N; j++){ 
-	    last_state[j].t = r->t;	
-	    last_state[j].x = r->particles[j].x;
-	    last_state[j].y = r->particles[j].y;
-	    last_state[j].z = r->particles[j].z;
-	    last_state[j].vx = r->particles[j].vx;
-	    last_state[j].vy = r->particles[j].vy;
-	    last_state[j].vz = r->particles[j].vz;
-	    last_state[j].ax = r->particles[j].ax;
-	    last_state[j].ay = r->particles[j].ay;
-	    last_state[j].az = r->particles[j].az;
-	}
 
-	n_calls++;
+    reb_update_acceleration(r);
+
+    // This can be a separate function
+    for(int j=0; j<N; j++){ 
+	last_state[j].t = r->t;	
+	last_state[j].x = r->particles[j].x;
+	last_state[j].y = r->particles[j].y;
+	last_state[j].z = r->particles[j].z;
+	last_state[j].vx = r->particles[j].vx;
+	last_state[j].vy = r->particles[j].vy;
+	last_state[j].vz = r->particles[j].vz;
+	last_state[j].ax = r->particles[j].ax;
+	last_state[j].ay = r->particles[j].ay;
+	last_state[j].az = r->particles[j].az;
     }
+
+    last_steps_done = r->steps_done;
+
 }
 
 // This function is doing two related things:
@@ -1336,20 +1211,43 @@ void heartbeat(struct reb_simulation* r){
 // * the b coefficients for all the particles,
 // * the last time step
 
-void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate){
-    
+void store_function(struct reb_simulation* r, int n_out){
     int N = r->N;
     int N3 = 3*N;
+
     double s[9]; // Summation coefficients
 
-    // Store the time and state for each particle for last
-    // completed step.
+    struct rebx_force* ephem_forces = rebx_get_force(r->extras, "ephemeris_forces");
+    timestate* ts = rebx_get_param(r->extras, ephem_forces->ap, "timestate");
+    tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");
+
+    static double* outtime;
+    static double* outstate;
+
+    int n_alloc;
+
+    outtime = ts->t;
+    outstate = ts->state;
+    n_alloc= ts->n_alloc;    
+
+    // Allocate more space if needed.
+    if((ts->n_alloc-(n_out+8))<=0){
+	if(n_alloc < 100){
+	    n_alloc = 100;
+	}else{
+	    n_alloc = 2*ts->n_alloc;
+	}
+	outstate = (double *) realloc(outstate, n_alloc*N*6*sizeof(double));
+	outtime  = (double *) realloc(outtime, n_alloc*sizeof(double));
+	ts->t = outtime;
+	ts->state = outstate;
+	ts->n_alloc = n_alloc;
+    }
+
     outtime[n_out] = last_state[0].t;
 
-    for(int j=0; j<n_particles; j++){
-	// Rather than computing an offset, perhaps there should be
-	// an index for the next open slot.
-	int offset = (n_out*n_particles+j)*6;
+    for(int j=0; j<N; j++){
+	int offset = (n_out*N+j)*6;
 	outstate[offset+0] = last_state[j].x;
 	outstate[offset+1] = last_state[j].y;	
 	outstate[offset+2] = last_state[j].z;
@@ -1401,6 +1299,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	s[8] = 7. * s[7] * h[n] / 9.;
 
 	double t = r->t + r->dt_last_done * (-1.0 + h[n]);
+	
 	outtime[n_out+n] = t;	
 
 	// Predict positions at interval n using b values
@@ -1416,7 +1315,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	  double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
 
 	  // Store the results
-	  int offset = ((n_out+n)*n_particles+j)*6;
+	  int offset = ((n_out+n)*N+j)*6;
 	  outstate[offset+0] = xx0;
 	  outstate[offset+1] = xy0;	  	  
 	  outstate[offset+2] = xz0;
@@ -1445,7 +1344,7 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 	  double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
 
 	  // Store the results
-	  int offset = ((n_out+n)*n_particles+j)*6;	  
+	  int offset = ((n_out+n)*N+j)*6;	  
 	  outstate[offset+3] = vx0;
 	  outstate[offset+4] = vy0;	  	  
 	  outstate[offset+5] = vz0;
@@ -1459,124 +1358,4 @@ void store_function(struct reb_simulation* r, int n_out, int n_particles, tstate
 
 }
 
-// This function is doing two related things:
-
-// 1. Calculating the positions and velocities at the substeps
-// 2. Storing the times and positions/velocities in the arrays
-//    that are provided.
-// This version will use:
-// * the current valid state for all particles after a
-//     completed step, 
-// * the b coefficients for all the particles, and
-// * the last completed time step.
-//
-// These quantities are all available in the simulation
-// structure.
-
-void store_function_v2(struct reb_simulation* r, int n_out, int n_particles, tstate* last_state, double* outtime, double* outstate){
-    
-    int N = r->N;
-    int N3 = 3*N;
-    double s[9]; // Summation coefficients
-
-    // Store the time and state for each particle for last
-    // completed step.
-    outtime[n_out] = last_state[0].t;
-
-    // Convenience variable.  The 'br' field contains the 
-    // set of coefficients from the last completed step.
-    const struct reb_dpconst7 b  = dpcast(r->ri_ias15.br);
-
-    double* restrict const x0 = r->ri_ias15.x0; 
-    double* restrict const v0 = r->ri_ias15.v0; 
-    double* restrict const a0 = r->ri_ias15.a0;
-
-    for(int j=0; j<n_particles; j++){
-
-	const int k0 = 3*j+0;
-	const int k1 = 3*j+1;
-	const int k2 = 3*j+2;
-
-	// Rather than computing an offset, perhaps there should be
-	// an index for the next open slot.
-	int offset = (n_out*n_particles+j)*6;
-
-	outstate[offset+0] = x0[k0];
-	outstate[offset+1] = x0[k1];
-	outstate[offset+2] = x0[k2];
-	outstate[offset+3] = v0[k0];
-	outstate[offset+4] = v0[k1];
-	outstate[offset+5] = v0[k2];
-
-    }
-    
-
-    // Loop over intervals using Gauss-Radau spacings      
-    for(int n=1;n<8;n++) {                          
-
-	s[0] = r->dt_last_done * h[n];
-
-	s[1] = s[0] * s[0] / 2.;
-	s[2] = s[1] * h[n] / 3.;
-	s[3] = s[2] * h[n] / 2.;
-	s[4] = 3. * s[3] * h[n] / 5.;
-	s[5] = 2. * s[4] * h[n] / 3.;
-	s[6] = 5. * s[5] * h[n] / 7.;
-	s[7] = 3. * s[6] * h[n] / 4.;
-	s[8] = 7. * s[7] * h[n] / 9.;
-
-	double t = r->t + r->dt_last_done * (-1.0 + h[n]);
-	outtime[n_out+n] = t;	
-
-	// Predict positions at interval n using b values
-	// for all the particles
-	for(int j=0;j<N;j++) {  
-	  //int mj = j;
-	  const int k0 = 3*j+0;
-	  const int k1 = 3*j+1;
-	  const int k2 = 3*j+2;
-
-	  double xx0 = x0[k0] + (s[8]*b.p6[k0] + s[7]*b.p5[k0] + s[6]*b.p4[k0] + s[5]*b.p3[k0] + s[4]*b.p2[k0] + s[3]*b.p1[k0] + s[2]*b.p0[k0] + s[1]*a0[k0] + s[0]*v0[k0] );
-	  double xy0 = x0[k1] + (s[8]*b.p6[k1] + s[7]*b.p5[k1] + s[6]*b.p4[k1] + s[5]*b.p3[k1] + s[4]*b.p2[k1] + s[3]*b.p1[k1] + s[2]*b.p0[k1] + s[1]*a0[k1] + s[0]*v0[k1] );
-	  double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
-
-	  // Store the results
-	  int offset = ((n_out+n)*n_particles+j)*6;
-	  outstate[offset+0] = xx0;
-	  outstate[offset+1] = xy0;	  	  
-	  outstate[offset+2] = xz0;
-	  
-	}
-
-	s[0] = r->dt_last_done * h[n];
-	s[1] =      s[0] * h[n] / 2.;
-	s[2] = 2. * s[1] * h[n] / 3.;
-	s[3] = 3. * s[2] * h[n] / 4.;
-	s[4] = 4. * s[3] * h[n] / 5.;
-	s[5] = 5. * s[4] * h[n] / 6.;
-	s[6] = 6. * s[5] * h[n] / 7.;
-	s[7] = 7. * s[6] * h[n] / 8.;
-
-	// Predict velocities at interval n using b values
-	// for all the particles
-	for(int j=0;j<N;j++) {
-
-	  const int k0 = 3*j+0;
-	  const int k1 = 3*j+1;
-	  const int k2 = 3*j+2;
-
-	  double vx0 = v0[k0] + s[7]*b.p6[k0] + s[6]*b.p5[k0] + s[5]*b.p4[k0] + s[4]*b.p3[k0] + s[3]*b.p2[k0] + s[2]*b.p1[k0] + s[1]*b.p0[k0] + s[0]*a0[k0];
-	  double vy0 = v0[k1] + s[7]*b.p6[k1] + s[6]*b.p5[k1] + s[5]*b.p4[k1] + s[4]*b.p3[k1] + s[3]*b.p2[k1] + s[2]*b.p1[k1] + s[1]*b.p0[k1] + s[0]*a0[k1];
-	  double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
-
-	  // Store the results
-	  int offset = ((n_out+n)*n_particles+j)*6;	  
-	  outstate[offset+3] = vx0;
-	  outstate[offset+4] = vy0;	  	  
-	  outstate[offset+5] = vz0;
-
-	}
-    }
-    
-}
 
