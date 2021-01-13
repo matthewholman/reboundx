@@ -590,26 +590,3 @@ void rebx_input_skip_binary_field(FILE* inf, long field_size);
 void rebx_error(struct rebx_extras* rebx, const char* const msg);
 #endif
 
-// Added gravitational constant G for the GR stuff (2020 Feb 26)
-// Added vx, vy, vz (2020 Feb 27)
-/**
- * @brief Read JPL ephemeris, based on Weryk's code
- * @param G double gravitational constant
- * @param i int mass index
- * @param t double simulation time
- * @param Pointer m double returned mass of body i.
- * @param Pointer x double returned x position of body i.
- * @param Pointer y double returned y position of body i.
- * @param Pointer x double returned x position of body i.
- * @param Pointer vx double returned x velocity of body i.
- * @param Pointer vy double returned y velocity of body i.
- * @param Pointer vz double returned z velocity of body i.
- * @param Pointer ax double returned x acceleration of body i.
- * @param Pointer ay double returned y acceleration of body i.
- * @param Pointer az double returned z acceleration of body i.
- */
-static void ephem(const int i, const double t, double* const GM,
-	   double* const x, double* const y, double* const z,
-	   double* const vx, double* const vy, double* const vz,
-	   double* const ax, double* const ay, double* const az);
-

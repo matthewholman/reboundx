@@ -25,14 +25,26 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
 
 int main(int argc, char* argv[]){
 
-    timestate ts;
-    timestate* tsp = (timestate*)malloc(sizeof(timestate));
+    //timestate ts;
+    //timestate* tsp = (timestate*)malloc(sizeof(timestate));
 
     double *instate;    
-    double* outstate;
-    double* outtime;
+    double* outstate = NULL;
+    double* outtime = NULL;
     double* cov_mat;
+
+    int n_alloc = 1000;
+    int N = 10;
+    outstate = (double *) malloc((8*n_alloc+1)*N*6*sizeof(double));
+    outtime  = (double *) malloc((8*n_alloc+1)*sizeof(double));
     
+    //outstate = (double *)malloc(n_alloc*8*N*6*sizeof(double));
+    //outtime  = (double *)malloc(n_alloc*8*sizeof(double));
+
+    //tsp->t = outtime;
+    //tsp->state = outstate;
+    //tsp->n_out = n_alloc;    
+
     int n_out;
 
     // Read ICs & integration params from file
@@ -56,26 +68,39 @@ int main(int argc, char* argv[]){
 			     int geocentric,
 			     int n_particles,
 			     double* instate,
+			     int n_alloc,			     
+			     int *n_out,
+			     double* outtime,
+			     double* outstate);
+
+    /*
+    int integration_function(double tstart, double tstep, double trange,
+			     int geocentric,
+			     int n_particles,
+			     double* instate,
 			     timestate *ts);
+    */
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
 
-    tsp->t = NULL;
+    //tsp->t = NULL;
 
     if(tstart >= tepoch){
-	integration_function(tepoch, tstep, trange+tstart-tepoch,
-			     //integration_function(tstart, tstep, trange,
-			     geocentric,
-			     n_particles,
-			     instate,             //ICs in instate correpond to tepoch
-			     tsp);
+	int status;
 
-	n_out = tsp->n_out;
-	outtime = tsp->t;
-	outstate = tsp->state;
+	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
+				      geocentric,
+				      n_particles,
+				      instate,             //ICs in instate correpond to tepoch
+				      n_alloc,
+				      &n_out,
+				      outtime,
+				      outstate);
 
-	for(int i=0; i<n_out; i++){
+	printf("n_out: %d %d\n", n_out, status);
+
+	for(int i=0; i<(8*n_out+1); i++){
 	    int offset = i*7*n_particles*6; //XYZ
 	    //for(int j=0; j<1; j++){ 
 	    for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
@@ -90,18 +115,18 @@ int main(int argc, char* argv[]){
      
     }else{
 
-	printf("out\n");
-	fflush(stdout);
+	int status = integration_function(tepoch, -tstep, tstart-tepoch,
+					  geocentric,
+					  n_particles,
+					  instate,            //IC for tepoch!
+					  n_alloc,					  
+					  &n_out,
+					  outtime,
+					  outstate);
 
-	integration_function(tepoch, -tstep, tstart-tepoch,
-      			  geocentric,
-			  n_particles,
-			  instate,            //IC for tepoch!
-			  tsp);
-
-	n_out = tsp->n_out;
-	outtime = tsp->t;
-	outstate = tsp->state;
+	//n_out = tsp->n_out;
+	//outtime = tsp->t;
+	//outstate = tsp->state;
 	
 	for(int i=n_out-1; i>0; i--){
 	    for(int j=0; j<7*n_particles; j++){ //XYZ
@@ -115,15 +140,19 @@ int main(int argc, char* argv[]){
 	    }
 	}
 
-	integration_function(tepoch, tstep, trange+tstart-tepoch,
-			     geocentric,
-			     n_particles,
-			     instate,
-			     &ts);
+	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
+				      geocentric,
+				      n_particles,
+				      instate,
+				      n_alloc,					  				      
+				      &n_out,
+				      outtime,
+				      outstate);
 
-	n_out = tsp->n_out;
-	outtime = tsp->t;
-	outstate = tsp->state;
+
+	//n_out = tsp->n_out;
+	//outtime = tsp->t;
+	//outstate = tsp->state;
 
 	for(int i=0; i<n_out; i++){
 	    for(int j=0; j<7*n_particles; j++){ //XYZ

@@ -6,6 +6,7 @@ asteroids, with positions and velocities supplied by JPL ephemeris
 files.  
 """
 
+import ctypes
 from ctypes import *
 import numpy as np
 from os import path as osp
@@ -20,7 +21,7 @@ class TimeState(Structure):
     _fields_ = [
         ('t', POINTER(c_double)),
         ('state', POINTER(c_double)),
-        ('n_out', c_int),        
+        ('n_alloc', c_int),        
         ('n_particles', c_int)
     ]
 
@@ -28,38 +29,19 @@ def integration_function(tstart, tstep, trange,
                          geocentric,
                          n_particles,
                          instate_arr):
-    """Wrapper for the c integration_function.
-    Parameters
-    ----------
-    tstart : float
-         The starting time of the integration in JD (TDB).
-    tstep :  float
-         Suggested time step for the integration, also in JD (TDB).
-    trange : float
-         The total amount of time to be integrated.
-    geocentric : int
-         Indicates if the initial conditions are geocentric.
-    n_particles : int
-         Number of test particles to be integrated.
-    instate_arr : numpy array of float (compatible with c doubles).
-         This a 1-d array of floats, giving initial (x, y, z, vx, vy, vz) 
-         for each test particle.
-    Returns
-    -------
-    np.array 
-         an array of the times (JD TDB) in the output.
-    np.array 
-         an array of the dynamical states (positions and velocities) of
-         the test particles at each of the output times.  The array has
-         shape (number of times, n_particles, 6).
-    int
-         number of output times         
-    int
-         number of particles
-    """
 
-    # Instantiate a TimeState structure to hold the integration results.
-    timestate = TimeState()
+    n_alloc = 1000
+
+    tsize = (n_alloc*8+1)    
+    array_of_tsize_doubles = c_double*tsize
+
+    ssize = (n_alloc*8+1)*6*n_particles*7
+    array_of_ssize_doubles = c_double*ssize    
+
+    outtime  = array_of_tsize_doubles()
+    outstate = array_of_ssize_doubles()
+
+    n_out = c_int()    
 
     # Set up call to integration_function
     _integration_function = rebx_lib.integration_function
@@ -68,19 +50,28 @@ def integration_function(tstart, tstep, trange,
                                       c_int,
                                       c_int,
                                       POINTER(c_double),
-                                      POINTER(TimeState))
+                                      c_int,
+                                      POINTER(c_int),
+                                      POINTER(array_of_tsize_doubles),
+                                      POINTER(array_of_ssize_doubles))
+    
+    _integration_function.restype = c_int
 
-    #_integration_function.restype = None
-
-    return_value = _integration_function(tstart, tstep, trange, geocentric,
+    return_value = _integration_function(tstart, tstep, trange,
+                                         geocentric,
                                          n_particles,
                                          instate_arr.ctypes.data_as(POINTER(c_double)),
-                                         byref(timestate))
+                                         n_alloc,
+                                         byref(n_out),
+                                         byref(outtime),
+                                         byref(outstate))
+
 
     # Parse and restructure the results
-    n_out = timestate.n_out
-    times  = np.ctypeslib.as_array(timestate.t, shape=(n_out,))
-    states = np.ctypeslib.as_array(timestate.state, shape=(n_out, 7*n_particles, 6))
-    n_particles = timestate.n_particles
 
-    return times, states, n_out, n_particles
+    #times  = np.ctypeslib.as_array(timestate.t, shape=(n_out*8+1,))
+    #states = np.ctypeslib.as_array(timestate.state, shape=(n_out*8+1, 7*n_particles, 6))
+    #n_particles = timestate.n_particles
+
+    return outtime, outstate, n_out.value, n_particles, return_value
+
