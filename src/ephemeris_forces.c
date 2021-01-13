@@ -964,6 +964,7 @@ int integration_function(double tstart, double tstep, double trange,
 int integration_function(double tstart, double tstep, double trange,
 			 int geocentric,
 			 int n_particles,
+			 double epsilon,
 			 double* instate,
 			 int n_alloc,			 
 			 int *n_out,
@@ -987,7 +988,8 @@ int integration_function(double tstart, double tstep, double trange,
     // These quantities are specific to IAS15.  Perhaps something more flexible could
     // be done so that other REBOUND integration routines could be explored.
     r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
-    r->ri_ias15.epsilon = 1e-8; // to avoid convergence issue with geocentric orbits
+    //r->ri_ias15.epsilon = 1e-8; // to avoid convergence issue with geocentric orbits
+    r->ri_ias15.epsilon = epsilon; // to avoid convergence issue with geocentric orbits    
 
     r->exact_finish_time = 1;
     
@@ -1217,32 +1219,6 @@ void store_function(struct reb_simulation* r){
     if(step==0){
 	state_offset = 0;
 	time_offset = 0;
-    }else{
-	state_offset = ((step-1)*8 +1)*6*N;
-	time_offset = (step-1)*8+1;
-    }    
-    // Allocate more space if needed.
-    /*
-    if((ts->n_alloc-step) < 1){
-	if(n_alloc < 10){
-	    n_alloc = 10;
-	}else{
-	    n_alloc = 2*ts->n_alloc;
-	}
-
-	outstate = (double *) realloc(outstate, n_alloc*8*N*6*sizeof(double));
-	outtime  = (double *) realloc(outtime, n_alloc*8*sizeof(double));
-	ts->t = outtime;
-	ts->state = outstate;
-	ts->n_alloc = n_alloc;
-    }
-    */
-
-    static int first = 1;
-    if(r->steps_done == 0 && first == 1){
-	state_offset = 0;
-	time_offset = 0;
-	time_offset = 0;	
 	outtime[time_offset++] = r->t;
 
 	int N = r->N;    
@@ -1255,8 +1231,10 @@ void store_function(struct reb_simulation* r){
 	    outstate[state_offset++] = r->particles[j].vy;
 	    outstate[state_offset++] = r->particles[j].vz;
 	}
-	first = 0;
     }else if(r->steps_done > last_steps_done){
+
+	state_offset = ((step-1)*8 +1)*6*N;
+	time_offset = (step-1)*8+1;
 
 	// Convenience variable.  The 'br' field contains the 
 	// set of coefficients from the last completed step.
@@ -1287,8 +1265,10 @@ void store_function(struct reb_simulation* r){
 	}
 
 	// Loop over intervals using Gauss-Radau spacings      
-	for(int n=1;n<9;n++) {                          
+	for(int n=1;n<9;n++) {
 
+	    // The h[n] values here define the substeps used in the
+	    // the integration, but they could be altered at this point.
 	    s[0] = r->dt_last_done * h[n];
 
 	    s[1] = s[0] * s[0] / 2.;
@@ -1317,7 +1297,6 @@ void store_function(struct reb_simulation* r){
 		double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
 
 		// Store the results
-		//int offset = ((8*(step-1)+n)*N+j)*6;		
 		outstate[state_offset++] = xx0;
 		outstate[state_offset++] = xy0;	  	  
 		outstate[state_offset++] = xz0;
@@ -1346,8 +1325,6 @@ void store_function(struct reb_simulation* r){
 		double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
 
 		// Store the results
-		//int offset = ((8*step+n)*N+j)*6;
-		//int offset = ((8*(step-1)+n)*N+j)*6;
 		outstate[state_offset++] = vx0;
 		outstate[state_offset++] = vy0;	  	  
 		outstate[state_offset++] = vz0;

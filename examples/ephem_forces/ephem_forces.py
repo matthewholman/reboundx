@@ -25,23 +25,12 @@ class TimeState(Structure):
         ('n_particles', c_int)
     ]
 
+    
 def integration_function(tstart, tstep, trange,
                          geocentric,
                          n_particles,
-                         instate_arr):
-
-    n_alloc = 1000
-
-    tsize = (n_alloc*8+1)    
-    array_of_tsize_doubles = c_double*tsize
-
-    ssize = (n_alloc*8+1)*6*n_particles*7
-    array_of_ssize_doubles = c_double*ssize    
-
-    outtime  = array_of_tsize_doubles()
-    outstate = array_of_ssize_doubles()
-
-    n_out = c_int()    
+                         instate_arr,
+                         epsilon = 1e-8):
 
     # Set up call to integration_function
     _integration_function = rebx_lib.integration_function
@@ -49,29 +38,46 @@ def integration_function(tstart, tstep, trange,
     _integration_function.argtypes = (c_double, c_double, c_double,
                                       c_int,
                                       c_int,
+                                      c_double,
                                       POINTER(c_double),
                                       c_int,
                                       POINTER(c_int),
-                                      POINTER(array_of_tsize_doubles),
-                                      POINTER(array_of_ssize_doubles))
+                                      POINTER(c_double),
+                                      POINTER(c_double))
     
     _integration_function.restype = c_int
 
-    return_value = _integration_function(tstart, tstep, trange,
-                                         geocentric,
-                                         n_particles,
-                                         instate_arr.ctypes.data_as(POINTER(c_double)),
-                                         n_alloc,
-                                         byref(n_out),
-                                         byref(outtime),
-                                         byref(outstate))
+    n_alloc = int(abs(trange/tstep)*1.2)
+    return_value = 5
+    fac = 1.0
 
+    while(return_value == 5):
 
-    # Parse and restructure the results
+        n_alloc = int(fac*n_alloc)
+        tsize = (n_alloc*8+1)    
+        ssize = (n_alloc*8+1)*6*n_particles*7
 
-    #times  = np.ctypeslib.as_array(timestate.t, shape=(n_out*8+1,))
-    #states = np.ctypeslib.as_array(timestate.state, shape=(n_out*8+1, 7*n_particles, 6))
-    #n_particles = timestate.n_particles
+        outtime = np.zeros((tsize), dtype=np.double)
+        outstate = np.zeros((ssize), dtype=np.double)
 
-    return outtime, outstate, n_out.value, n_particles, return_value
+        n_out = c_int()    
+
+        return_value = _integration_function(tstart, tstep, trange,
+                                             geocentric,
+                                             n_particles,
+                                             epsilon,
+                                             instate_arr.ctypes.data_as(POINTER(c_double)),
+                                             n_alloc,
+                                             byref(n_out),
+                                             outtime.ctypes.data_as(POINTER(c_double)),
+                                             outstate.ctypes.data_as(POINTER(c_double)))
+
+        outstate = np.reshape(outstate, (-1, 7*n_particles, 6))
+        outstate = outstate[:8*n_out.value+1]
+        outtime = outtime[:8*n_out.value+1]
+
+        fac = int(1.5*abs(trange/(outtime[-1]-outtime[0])))        
+
+    return outtime, outstate, n_out.value, n_particles, n_alloc, return_value    
+    
 

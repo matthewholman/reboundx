@@ -64,14 +64,17 @@ int main(int argc, char* argv[]){
 
     sscanf(argv[2], "%lf", &scale);
 
+    double epsilon = -1.0;
+
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
 			     int n_particles,
+			     double epsilon,
 			     double* instate,
-			     int n_alloc,			     
+			     int n_alloc,			 
 			     int *n_out,
 			     double* outtime,
-			     double* outstate);
+			     double* outstate);			 
 
     /*
     int integration_function(double tstart, double tstep, double trange,
@@ -92,6 +95,7 @@ int main(int argc, char* argv[]){
 	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
 				      geocentric,
 				      n_particles,
+				      epsilon,
 				      instate,             //ICs in instate correpond to tepoch
 				      n_alloc,
 				      &n_out,
@@ -118,6 +122,7 @@ int main(int argc, char* argv[]){
 	int status = integration_function(tepoch, -tstep, tstart-tepoch,
 					  geocentric,
 					  n_particles,
+					  epsilon,					  
 					  instate,            //IC for tepoch!
 					  n_alloc,					  
 					  &n_out,
@@ -143,6 +148,7 @@ int main(int argc, char* argv[]){
 	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
 				      geocentric,
 				      n_particles,
+				      epsilon,
 				      instate,
 				      n_alloc,					  				      
 				      &n_out,
