@@ -19,21 +19,27 @@ typedef struct {
 
 void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
 		 int *geocentric,
+		 double *epsilon,
+		 int *n_particles,		 
 		 double **instate,
-		 double **cov_mat,
-		 int *n_particles);
+		 int *n_var,
+		 int **invar_part,		 
+		 double **invar,
+		 double **cov_mat);
 
 int main(int argc, char* argv[]){
 
     //timestate ts;
     //timestate* tsp = (timestate*)malloc(sizeof(timestate));
 
-    double *instate;    
+    double *instate;
+    int *invar_part;            
+    double *invar;        
     double* outstate = NULL;
     double* outtime = NULL;
     double* cov_mat;
 
-    int n_alloc = 1000;
+    int n_alloc = 10000;
     int N = 10;
     outstate = (double *) malloc((8*n_alloc+1)*N*6*sizeof(double));
     outtime  = (double *) malloc((8*n_alloc+1)*sizeof(double));
@@ -51,9 +57,18 @@ int main(int argc, char* argv[]){
     double tepoch, tstart, tstep, trange;
     int geocentric;
     int n_particles;
+    int n_var;
+    double epsilon;
 
     if(argc >=2){
-	read_inputs(argv[1], &tepoch, &tstart, &tstep, &trange, &geocentric, &instate, &cov_mat, &n_particles);
+	read_inputs(argv[1], &tepoch, &tstart, &tstep, &trange,
+		    &geocentric, &epsilon,
+		    &n_particles,		    
+		    &instate,
+		    &n_var,
+		    &invar_part,
+		    &invar,
+		    &cov_mat);
     }else{
 //	read_inputs("initial_conditions.txt", &tepoch, &tstart, &tstep, &trange, &geocentric, &instate, &n_particles);
         printf("No Input File\n");
@@ -64,8 +79,7 @@ int main(int argc, char* argv[]){
 
     sscanf(argv[2], "%lf", &scale);
 
-    double epsilon = -1.0;
-
+    /*
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
 			     int n_particles,
@@ -75,7 +89,7 @@ int main(int argc, char* argv[]){
 			     int *n_out,
 			     double* outtime,
 			     double* outstate);			 
-
+    */
     /*
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
@@ -83,6 +97,19 @@ int main(int argc, char* argv[]){
 			     double* instate,
 			     timestate *ts);
     */
+
+    int integration_function(double tstart, double tstep, double trange,
+			     int geocentric,
+			     double epsilon,
+			     int n_particles,
+			     double* instate,
+			     int n_var,
+			     int* invar_part,			 
+			     double* invar,
+			     int n_alloc,			 
+			     int *n_out,
+			     double* outtime,
+			     double* outstate);			 
 
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
@@ -94,9 +121,12 @@ int main(int argc, char* argv[]){
 
 	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
 				      geocentric,
-				      n_particles,
 				      epsilon,
-				      instate,             //ICs in instate correpond to tepoch
+				      n_particles,
+				      instate,
+				      n_var,
+				      invar_part,				      
+				      invar,
 				      n_alloc,
 				      &n_out,
 				      outtime,
@@ -105,9 +135,9 @@ int main(int argc, char* argv[]){
 	printf("n_out: %d %d\n", n_out, status);
 
 	for(int i=0; i<(8*n_out+1); i++){
-	    int offset = i*7*n_particles*6; //XYZ
+	    int offset = i*(n_particles+n_var)*6; //XYZ
 	    //for(int j=0; j<1; j++){ 
-	    for(int j=0; j<7*n_particles; j++){ //XYZ - hard coded "7" 6 var. particles per real particle
+	    for(int j=0; j<(n_particles+n_var); j++){ //XYZ - hard coded "7" 6 var. particles per real particle
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
@@ -121,9 +151,12 @@ int main(int argc, char* argv[]){
 
 	int status = integration_function(tepoch, -tstep, tstart-tepoch,
 					  geocentric,
+					  epsilon,
 					  n_particles,
-					  epsilon,					  
-					  instate,            //IC for tepoch!
+					  instate,
+					  n_var,
+					  invar_part,
+					  invar,
 					  n_alloc,					  
 					  &n_out,
 					  outtime,
@@ -147,9 +180,12 @@ int main(int argc, char* argv[]){
 
 	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
 				      geocentric,
-				      n_particles,
 				      epsilon,
+				      n_particles,
 				      instate,
+				      n_var,
+				      invar_part,
+				      invar,
 				      n_alloc,					  				      
 				      &n_out,
 				      outtime,
@@ -180,18 +216,27 @@ int main(int argc, char* argv[]){
 }
 
 void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
-		 int* geocentric, 
+		 int *geocentric,
+		 double *epsilon,
+		 int *n_particles,		 
 		 double **instate,
-		 double **cov_mat,
-		 int* n_particles){
+		 int *n_var,
+		 int **invar_part,		 
+		 double **invar,
+		 double **cov_mat){
 
      char label[100]; /* hardwired for length */
      FILE* fp;
 
      int np = 0;
+     int nvar = 0;
 
-     int n_allocated = 1;
-     double* state = malloc(n_allocated*6*sizeof(double)); // Clean this up.
+     int n_alloc = 1;
+     double* state = malloc(n_alloc*6*sizeof(double));
+
+     int n_var_alloc = 1;
+     double* var = malloc(n_var_alloc*6*sizeof(double));
+     int* var_part = malloc(n_var_alloc*sizeof(int));
 
      double* cov = malloc(36*sizeof(double));
      
@@ -206,6 +251,8 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
 	  fscanf(fp, "%lf", tstep);
         } else if(!strcmp(label, "trange")){
 	  fscanf(fp, "%lf", trange);
+        } else if(!strcmp(label, "epsilon")){
+         fscanf(fp, "%lf", epsilon);
         } else if(!strcmp(label, "geocentric")){
          fscanf(fp, "%d", geocentric);
         } else if(!strcmp(label, "state")){
@@ -214,9 +261,22 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
          np++;
 
 	 // Resize the array, if needed.
-	 if(np==n_allocated){
-	     n_allocated *= 2;
-	     state = realloc(state, n_allocated*6*sizeof(double));
+	 if(np==n_alloc){
+	     n_alloc *= 2;
+	     state = realloc(state, n_alloc*6*sizeof(double));
+	 }
+	 
+        } else if(!strcmp(label, "var")){
+	    fscanf(fp, "%d", &var_part[nvar]);
+	    fscanf(fp, "%lf%lf%lf", &var[6*nvar+0], &var[6*nvar+1], &var[6*nvar+2]);
+	    fscanf(fp, "%lf%lf%lf", &var[6*nvar+3], &var[6*nvar+4], &var[6*nvar+5]);	 
+	    nvar++;
+
+	 // Resize the array, if needed.
+	 if(nvar==n_var_alloc){
+	     n_var_alloc *= 2;
+	     var = realloc(var, n_var_alloc*6*sizeof(double));
+	     var_part = realloc(var_part, n_var_alloc*sizeof(int));	     
 	 }
 	 
         } else if(!strcmp(label, "covariance")){
@@ -235,9 +295,14 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
 
       //deallocate unused space
       state = realloc(state, np*6*sizeof(double));
+      var   = realloc(var, nvar*6*sizeof(double));
+      var_part   = realloc(var_part, nvar*6*sizeof(int));            
 
       *n_particles = np;
+      *n_var = nvar;      
       *instate = state;      
+      *invar = var;
+      *invar_part = var_part;            
       *cov_mat = cov;
 
       fclose(fp);

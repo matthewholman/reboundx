@@ -30,6 +30,9 @@ def integration_function(tstart, tstep, trange,
                          geocentric,
                          n_particles,
                          instate_arr,
+                         n_var,
+                         invar_part,                         
+                         invar,
                          epsilon = 1e-8):
 
     # Set up call to integration_function
@@ -37,8 +40,11 @@ def integration_function(tstart, tstep, trange,
 
     _integration_function.argtypes = (c_double, c_double, c_double,
                                       c_int,
-                                      c_int,
                                       c_double,
+                                      c_int,
+                                      POINTER(c_double),
+                                      c_int,
+                                      POINTER(c_int),
                                       POINTER(c_double),
                                       c_int,
                                       POINTER(c_int),
@@ -55,7 +61,7 @@ def integration_function(tstart, tstep, trange,
 
         n_alloc = int(fac*n_alloc)
         tsize = (n_alloc*8+1)    
-        ssize = (n_alloc*8+1)*6*n_particles*7
+        ssize = (n_alloc*8+1)*6*(n_particles+n_var)
 
         outtime = np.zeros((tsize), dtype=np.double)
         outstate = np.zeros((ssize), dtype=np.double)
@@ -64,15 +70,18 @@ def integration_function(tstart, tstep, trange,
 
         return_value = _integration_function(tstart, tstep, trange,
                                              geocentric,
-                                             n_particles,
                                              epsilon,
+                                             n_particles,
                                              instate_arr.ctypes.data_as(POINTER(c_double)),
+                                             n_var,
+                                             invar_part.ctypes.data_as(POINTER(c_int)),                                             
+                                             invar.ctypes.data_as(POINTER(c_double)),
                                              n_alloc,
                                              byref(n_out),
                                              outtime.ctypes.data_as(POINTER(c_double)),
                                              outstate.ctypes.data_as(POINTER(c_double)))
 
-        outstate = np.reshape(outstate, (-1, 7*n_particles, 6))
+        outstate = np.reshape(outstate, (-1, (n_particles+n_var), 6))
         outstate = outstate[:8*n_out.value+1]
         outtime = outtime[:8*n_out.value+1]
 

@@ -963,9 +963,12 @@ int integration_function(double tstart, double tstep, double trange,
 */
 int integration_function(double tstart, double tstep, double trange,
 			 int geocentric,
-			 int n_particles,
 			 double epsilon,
+			 int n_particles,
 			 double* instate,
+			 int n_var,
+			 int* invar_part,			 
+			 double* invar,
 			 int n_alloc,			 
 			 int *n_out,
 			 double* outtime,
@@ -1030,57 +1033,18 @@ int integration_function(double tstart, double tstep, double trange,
 
     // Add and initialize variational particles
 
-    int var_i;
-    for(int i=0; i<n_particles; i++){
- 
-        var_i = reb_add_var_1st_order(r, i); // The i corresponds to the index of the testparticle that we vary.
-        r->particles[var_i].x = 1.; // perturbation of x-component test particles.
-        r->particles[var_i].y = 0.; // lines superfluous; all var. particle ICs are zero by default.
-        r->particles[var_i].z = 0.;
-        r->particles[var_i].vx = 0.;
-        r->particles[var_i].vy = 0.;
-        r->particles[var_i].vz = 0.;
- 
-        var_i = reb_add_var_1st_order(r, i); 
-        r->particles[var_i].x = 0.; 
-        r->particles[var_i].y = 1.; 
-        r->particles[var_i].z = 0.;
-        r->particles[var_i].vx = 0.;
-        r->particles[var_i].vy = 0.;
-        r->particles[var_i].vz = 0.;
- 
-        var_i = reb_add_var_1st_order(r, i); 
-        r->particles[var_i].x = 0.; 
-        r->particles[var_i].y = 0.; 
-        r->particles[var_i].z = 1.;
-        r->particles[var_i].vx = 0.;
-        r->particles[var_i].vy = 0.;
-        r->particles[var_i].vz = 0.;
- 
-        var_i = reb_add_var_1st_order(r, i); 
-        r->particles[var_i].x = 0.; 
-        r->particles[var_i].y = 0.; 
-        r->particles[var_i].z = 0.;
-        r->particles[var_i].vx = 1.;
-        r->particles[var_i].vy = 0.;
-        r->particles[var_i].vz = 0.;
- 
-        var_i = reb_add_var_1st_order(r, i); 
-        r->particles[var_i].x = 0.; 
-        r->particles[var_i].y = 0.; 
-        r->particles[var_i].z = 0.;
-        r->particles[var_i].vx = 0.;
-        r->particles[var_i].vy = 1.;
-        r->particles[var_i].vz = 0.;
- 
-        var_i = reb_add_var_1st_order(r, i); 
-        r->particles[var_i].x = 0.; 
-        r->particles[var_i].y = 0.; 
-        r->particles[var_i].z = 0.;
-        r->particles[var_i].vx = 0.;
-        r->particles[var_i].vy = 0.;
-        r->particles[var_i].vz = 1.;
+    for(int i=0; i<n_var; i++){
 
+	// invar_part[i] contains the index of the test particle that we vary.	
+        int var_i = reb_add_var_1st_order(r, invar_part[i]);
+	
+        r->particles[var_i].x =  invar[6*i+0]; 
+        r->particles[var_i].y =  invar[6*i+1]; 
+        r->particles[var_i].z =  invar[6*i+2]; 
+        r->particles[var_i].vx = invar[6*i+3]; 
+        r->particles[var_i].vy = invar[6*i+4]; 
+        r->particles[var_i].vz = invar[6*i+5]; 
+ 
     }
 
     int N = r->N; // N includes real+variational particles
@@ -1213,15 +1177,14 @@ void store_function(struct reb_simulation* r){
     outstate = ts->state;
     n_alloc= ts->n_alloc;
 
-    int state_offset;
-    int time_offset;
-
     if(step==0){
-	state_offset = 0;
-	time_offset = 0;
+
+	int state_offset = 0;
+	int time_offset = 0;
+	printf("step offset: %d %d\n", step, state_offset);
+	
 	outtime[time_offset++] = r->t;
 
-	int N = r->N;    
 	for(int j=0; j<N; j++){
 	    last_state[j].t = r->t;	
 	    outstate[state_offset++] = r->particles[j].x;
@@ -1231,10 +1194,8 @@ void store_function(struct reb_simulation* r){
 	    outstate[state_offset++] = r->particles[j].vy;
 	    outstate[state_offset++] = r->particles[j].vz;
 	}
-    }else if(r->steps_done > last_steps_done){
 
-	state_offset = ((step-1)*8 +1)*6*N;
-	time_offset = (step-1)*8+1;
+    }else if(r->steps_done > last_steps_done){
 
 	// Convenience variable.  The 'br' field contains the 
 	// set of coefficients from the last completed step.
@@ -1263,6 +1224,8 @@ void store_function(struct reb_simulation* r){
 	    a0[k2] = last_state[j].az;
 
 	}
+
+	int time_offset = (step-1)*8+1;
 
 	// Loop over intervals using Gauss-Radau spacings      
 	for(int n=1;n<9;n++) {
@@ -1297,10 +1260,12 @@ void store_function(struct reb_simulation* r){
 		double xz0 = x0[k2] + (s[8]*b.p6[k2] + s[7]*b.p5[k2] + s[6]*b.p4[k2] + s[5]*b.p3[k2] + s[4]*b.p2[k2] + s[3]*b.p1[k2] + s[2]*b.p0[k2] + s[1]*a0[k2] + s[0]*v0[k2] );
 
 		// Store the results
-		outstate[state_offset++] = xx0;
-		outstate[state_offset++] = xy0;	  	  
-		outstate[state_offset++] = xz0;
-	  
+		int offset = ((step-1)*8 + n)*6*N + 6*j;
+		printf("step offset j: %d %d %d\n", step, offset, j);
+		//int offset = (step*N+j)*6;
+		outstate[offset+0] = xx0;
+		outstate[offset+1] = xy0;	  	  
+		outstate[offset+2] = xz0;
 	    }
 
 	    s[0] = r->dt_last_done * h[n];
@@ -1325,9 +1290,11 @@ void store_function(struct reb_simulation* r){
 		double vz0 = v0[k2] + s[7]*b.p6[k2] + s[6]*b.p5[k2] + s[5]*b.p4[k2] + s[4]*b.p3[k2] + s[3]*b.p2[k2] + s[2]*b.p1[k2] + s[1]*b.p0[k2] + s[0]*a0[k2];
 
 		// Store the results
-		outstate[state_offset++] = vx0;
-		outstate[state_offset++] = vy0;	  	  
-		outstate[state_offset++] = vz0;
+		int offset = ((step-1)*8 + n)*6*N + 6*j;		
+		//int offset = (step*N+j)*6;				
+		outstate[offset+3] = vx0;
+		outstate[offset+4] = vy0;	  	  
+		outstate[offset+5] = vz0;
 
 	    }
 	}
