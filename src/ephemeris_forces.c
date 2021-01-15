@@ -1181,7 +1181,6 @@ void store_function(struct reb_simulation* r){
 
 	int state_offset = 0;
 	int time_offset = 0;
-	printf("step offset: %d %d\n", step, state_offset);
 	
 	outtime[time_offset++] = r->t;
 
@@ -1261,8 +1260,6 @@ void store_function(struct reb_simulation* r){
 
 		// Store the results
 		int offset = ((step-1)*8 + n)*6*N + 6*j;
-		printf("step offset j: %d %d %d\n", step, offset, j);
-		//int offset = (step*N+j)*6;
 		outstate[offset+0] = xx0;
 		outstate[offset+1] = xy0;	  	  
 		outstate[offset+2] = xz0;
@@ -1291,7 +1288,6 @@ void store_function(struct reb_simulation* r){
 
 		// Store the results
 		int offset = ((step-1)*8 + n)*6*N + 6*j;		
-		//int offset = (step*N+j)*6;				
 		outstate[offset+3] = vx0;
 		outstate[offset+4] = vy0;	  	  
 		outstate[offset+5] = vz0;

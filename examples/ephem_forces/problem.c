@@ -44,9 +44,6 @@ int main(int argc, char* argv[]){
     outstate = (double *) malloc((8*n_alloc+1)*N*6*sizeof(double));
     outtime  = (double *) malloc((8*n_alloc+1)*sizeof(double));
     
-    //outstate = (double *)malloc(n_alloc*8*N*6*sizeof(double));
-    //outtime  = (double *)malloc(n_alloc*8*sizeof(double));
-
     //tsp->t = outtime;
     //tsp->state = outstate;
     //tsp->n_out = n_alloc;    
@@ -79,24 +76,6 @@ int main(int argc, char* argv[]){
 
     sscanf(argv[2], "%lf", &scale);
 
-    /*
-    int integration_function(double tstart, double tstep, double trange,
-			     int geocentric,
-			     int n_particles,
-			     double epsilon,
-			     double* instate,
-			     int n_alloc,			 
-			     int *n_out,
-			     double* outtime,
-			     double* outstate);			 
-    */
-    /*
-    int integration_function(double tstart, double tstep, double trange,
-			     int geocentric,
-			     int n_particles,
-			     double* instate,
-			     timestate *ts);
-    */
 
     int integration_function(double tstart, double tstep, double trange,
 			     int geocentric,
@@ -114,7 +93,6 @@ int main(int argc, char* argv[]){
     // clearing out the file
     FILE* g = fopen("out_states.txt","w");
 
-    //tsp->t = NULL;
 
     if(tstart >= tepoch){
 	int status;
@@ -132,20 +110,17 @@ int main(int argc, char* argv[]){
 				      outtime,
 				      outstate);
 
-	printf("n_out: %d %d\n", n_out, status);
-
 	for(int i=0; i<(8*n_out+1); i++){
 	    int offset = i*(n_particles+n_var)*6; //XYZ
-	    //for(int j=0; j<1; j++){ 
-	    for(int j=0; j<(n_particles+n_var); j++){ //XYZ - hard coded "7" 6 var. particles per real particle
+	    for(int j=0; j<(n_particles+n_var); j++){
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
 		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
-	 }
-     }
+	    }
+	}
      
     }else{
 
@@ -162,17 +137,13 @@ int main(int argc, char* argv[]){
 					  outtime,
 					  outstate);
 
-	//n_out = tsp->n_out;
-	//outtime = tsp->t;
-	//outstate = tsp->state;
-	
-	for(int i=n_out-1; i>0; i--){
-	    for(int j=0; j<7*n_particles; j++){ //XYZ
+	for(int i=(8*n_out); i>0; i--){
+	    int offset = i*(n_particles+n_var)*6; //XYZ
+	    for(int j=0; j<(n_particles+n_var); j++){
 		fprintf(g,"%lf ", outtime[i]);
-		fprintf(g,"%d ", j);
-		int offset = (i*7*n_particles+j)*6; //XYZ
+		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%28.16e ", outstate[offset+k]);
+		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
 	    }
@@ -191,25 +162,19 @@ int main(int argc, char* argv[]){
 				      outtime,
 				      outstate);
 
-
-	//n_out = tsp->n_out;
-	//outtime = tsp->t;
-	//outstate = tsp->state;
-
-	for(int i=0; i<n_out; i++){
-	    for(int j=0; j<7*n_particles; j++){ //XYZ
+	for(int i=0; i<(8*n_out+1); i++){
+	    int offset = i*(n_particles+n_var)*6; //XYZ
+	    for(int j=0; j<(n_particles+n_var); j++){
 		fprintf(g,"%lf ", outtime[i]);
-		fprintf(g,"%d ", j);
-		int offset = (i*7*n_particles+j)*6; //XYZ
+		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%28.16e ", outstate[offset+k]);
+		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
 	    }
-	}
 	
+	}
     }
-
 
     fclose(g);    
 
