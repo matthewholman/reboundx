@@ -366,6 +366,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     }
     
     // Calculate acceleration of variational particles due to sun and planets
+    // Loop over the perturbers
     for (int i=0; i<N_tot; i++){
 
         // Get position and mass of massive body i.	
@@ -397,12 +398,13 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	    for (int v=0; v < sim->var_config_N; v++){
 		struct reb_variational_configuration const vc = sim->var_config[v];
 		int tp = vc.testparticle;
+		struct reb_particle* const particles_var1 = particles + vc.index;		
 		if(tp == j){
 	    
 		    // Variational particle coords
-		    const double ddx = particles[v].x;
-		    const double ddy = particles[v].y;
-		    const double ddz = particles[v].z;
+		    const double ddx = particles_var1[0].x;
+		    const double ddy = particles_var1[0].y;
+		    const double ddz = particles_var1[0].z;
 		    const double Gmi = GM;
 
 		    // Matrix multiplication
@@ -413,9 +415,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 		    // No variational mass contributions for test particles!
 
 		    // Accumulate acceleration terms
-		    particles[v].ax += Gmi * dax; 
-		    particles[v].ay += Gmi * day; 
-		    particles[v].az += Gmi * daz; 
+		    particles_var1[0].ax += Gmi * dax; 
+		    particles_var1[0].ay += Gmi * day; 
+		    particles_var1[0].az += Gmi * daz; 
 
 		}
 	    }
