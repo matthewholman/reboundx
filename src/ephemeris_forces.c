@@ -285,9 +285,9 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     int N_ephem, N_ast;
     int number_bodies(int* N_ephem, int* N_ast);
 
-    int N_tot = number_bodies(&N_ephem, &N_ast);
+    const int N_tot = number_bodies(&N_ephem, &N_ast);
 
-    double* c = rebx_get_param(sim->extras, force->ap, "c");
+    const double* c = rebx_get_param(sim->extras, force->ap, "c");
     if (c == NULL){
         reb_error(sim, "REBOUNDx Error: Need to set speed of light in gr effect.  See examples in documentation.\n");
         return;
@@ -343,8 +343,20 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	    const double dx = particles[j].x + (xo - x); 
 	    const double dy = particles[j].y + (yo - y);
 	    const double dz = particles[j].z + (zo - z);
-	    const double _r = sqrt(dx*dx + dy*dy + dz*dz);
+	    const double r2 = dx*dx + dy*dy + dz*dz;
+	    const double _r  = sqrt(r2);
 	    const double prefac = GM/(_r*_r*_r);
+
+	    // Values and cooefficients for variational equations
+	    const double r3inv = 1./(r2*_r);
+	    const double r5inv = 3.*r3inv/r2;
+
+	    const double dxdx = dx*dx*r5inv - r3inv;
+	    const double dydy = dy*dy*r5inv - r3inv;
+	    const double dzdz = dz*dz*r5inv - r3inv;
+	    const double dxdy = dx*dy*r5inv;
+	    const double dxdz = dx*dz*r5inv;
+	    const double dydz = dy*dz*r5inv;
 
 	    particles[j].ax -= prefac*dx;
 	    particles[j].ay -= prefac*dy;
@@ -352,7 +364,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 
         }
     }
-
+    
     // Calculate acceleration of variational particles due to sun and planets
     for (int i=0; i<N_tot; i++){
 
@@ -378,30 +390,39 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	    const double dydz = dy*dz*r5inv;
 
 	    // Loop over variational particles
-	    for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
+	    // Update the accelerations for the variational
+	    // particles that are associated with current
+	    // real particle.
 
-		// Variational particle coords
-		const double ddx = particles[v].x;
-		const double ddy = particles[v].y;
-		const double ddz = particles[v].z;
-		const double Gmi = GM;
+	    for (int v=0; v < sim->var_config_N; v++){
+		struct reb_variational_configuration const vc = sim->var_config[v];
+		int tp = vc.testparticle;
+		if(tp == j){
+	    
+		    // Variational particle coords
+		    const double ddx = particles[v].x;
+		    const double ddy = particles[v].y;
+		    const double ddz = particles[v].z;
+		    const double Gmi = GM;
 
-		// Matrix multiplication
-		const double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
-		const double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
-		const double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
+		    // Matrix multiplication
+		    const double dax =   ddx * dxdx + ddy * dxdy + ddz * dxdz;
+		    const double day =   ddx * dxdy + ddy * dydy + ddz * dydz;
+		    const double daz =   ddx * dxdz + ddy * dydz + ddz * dzdz;
 
-		// No variational mass contributions for test particles!
+		    // No variational mass contributions for test particles!
 
-		// Accumulate acceleration terms
-		particles[v].ax += Gmi * dax; 
-		particles[v].ay += Gmi * day; 
-		particles[v].az += Gmi * daz; 
+		    // Accumulate acceleration terms
+		    particles[v].ax += Gmi * dax; 
+		    particles[v].ay += Gmi * day; 
+		    particles[v].az += Gmi * daz; 
 
+		}
 	    }
         }
     }
 
+    
     // We might move this into a somewhat separate part of the code,
     // similar to how different extra forces are typically handled in
     // reboundx

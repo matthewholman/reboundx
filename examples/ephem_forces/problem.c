@@ -116,9 +116,17 @@ int main(int argc, char* argv[]){
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
+		/*
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%3d ", j);
+		for(int k=3; k<6; k++){
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
+		}
+		fprintf(g,"\n");
+		*/
 	    }
 	}
      
@@ -143,9 +151,17 @@ int main(int argc, char* argv[]){
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
+		/*
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%3d ", j);
+		for(int k=3; k<6; k++){
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
+		}
+		fprintf(g,"\n");
+		*/
 	    }
 	}
 
@@ -168,9 +184,18 @@ int main(int argc, char* argv[]){
 		fprintf(g,"%lf ", outtime[i]);
 		fprintf(g,"%3d ", j);
 		for(int k=0; k<6; k++){
-		    fprintf(g,"%28.16e ", outstate[offset+6*j+k]);
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
 		}
 		fprintf(g,"\n");
+		/*
+		fprintf(g,"%lf ", outtime[i]);
+		fprintf(g,"%3d ", j);
+		for(int k=3; k<6; k++){
+		    fprintf(g,"%23.16e ", outstate[offset+6*j+k]);
+		}
+		fprintf(g,"\n");
+		*/
+		
 	    }
 	
 	}
