@@ -1014,7 +1014,6 @@ int integration_function(double tstart, double tstep, double trange,
     // These quantities are specific to IAS15.  Perhaps something more flexible could
     // be done so that other REBOUND integration routines could be explored.
     r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
-    //r->ri_ias15.epsilon = 1e-8; // to avoid convergence issue with geocentric orbits
     r->ri_ias15.epsilon = epsilon; // to avoid convergence issue with geocentric orbits    
 
     r->exact_finish_time = 1;
@@ -1253,7 +1252,7 @@ void store_function(struct reb_simulation* r){
 	for(int n=1;n<9;n++) {
 
 	    // The h[n] values here define the substeps used in the
-	    // the integration, but they could be altered at this point.
+	    // the integration, but they could be any values.
 	    s[0] = r->dt_last_done * h[n];
 
 	    s[1] = s[0] * s[0] / 2.;
