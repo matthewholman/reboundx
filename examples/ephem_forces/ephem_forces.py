@@ -101,6 +101,7 @@ def production_integration_function_wrapper(
         tstart,
         tstep,
         trange,
+        epoch,
         geocentric,
         n_particles,
         instate_arr,
