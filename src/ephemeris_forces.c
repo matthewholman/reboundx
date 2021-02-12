@@ -348,6 +348,7 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	    const double prefac = GM/(_r*_r*_r);
 
 	    // Values and cooefficients for variational equations
+	    // Looks like extra
 	    const double r3inv = 1./(r2*_r);
 	    const double r5inv = 3.*r3inv/r2;
 
