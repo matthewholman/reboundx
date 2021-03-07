@@ -801,6 +801,111 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
         particles[j].ay += A1*g*dy/r + A2*g*ty/t + A3*g*hy/h;
         particles[j].az += A1*g*dz/r + A2*g*tz/t + A3*g*hz/h;
 
+//      variational matrix elements
+
+        const double r3    = r*r*r;
+        const double v2    = dvx*dvx + dvy*dvy + dvz*dvz;
+        const double rdotv = dx*dvx  + dy*dvy  + dz*dvz;
+        const double vdott = dvx*tx  + dvy*ty  + dvz*tz;
+
+        const double dgx  = -2.*dx*g*g;
+        const double dgy  = -2.*dy*g*g;
+        const double dgz  = -2.*dz*g*g;
+
+        const double hxh3 = hx/h/h/h;
+        const double hyh3 = hy/h/h/h;
+        const double hzh3 = hz/h/h/h;
+
+        const double txt3 = tx/t/t/t;
+        const double tyt3 = ty/t/t/t;
+        const double tzt3 = tz/t/t/t;
+
+	const double dxdx = A1*(dgx*dx + g*(1/r - dx*dx/r3)) 
+                          + A2*(dgx*hx + g*(-hxh3)*(v2*dx - rdotv*dvx)) 
+                          + A3*(dgx*tx + g*((dx*dvx - rdotv)/t - txt3*(2.*dx*vdott - rdotv*tx)));
+	const double dydy = A1*(dgy*dy + g*(1/r - dy*dy/r3)) 
+                          + A2*(dgy*hy + g*(-hyh3)*(v2*dy - rdotv*dvy)) 
+                          + A3*(dgy*ty + g*((dy*dvy - rdotv)/t - tyt3*(2.*dy*vdott - rdotv*ty)));
+	const double dzdz = A1*(dgz*dz + g*(1/r - dz*dz/r3)) 
+                          + A2*(dgz*hz + g*(-hzh3)*(v2*dz - rdotv*dvz)) 
+                          + A3*(dgz*tz + g*((dz*dvz - rdotv)/t - tzt3*(2.*dz*vdott - rdotv*tz)));
+
+	const double dxdy = A1*(dgy*dx + g*(-dx*dy/r3))
+                          + A2*(dgy*hx + g*(dvz/h -hxh3*(v2*dy - rdotv*dvy)))
+                          + A3*(dgy*tx + g*((2*dy*dvx - dx*dvy)/t - txt3*(2*dy*vdott - rdotv*ty)));
+	const double dydx = A1*(dgx*dy + g*(-dx*dy/r3))
+                          + A2*(dgx*hy + g*(-dvz/h -hyh3*(v2*dx - rdotv*dvx)))
+                          + A3*(dgx*ty + g*((2*dx*dvy - dy*dvx)/t - tyt3*(2*dx*vdott - rdotv*tx)));
+	const double dxdz = A1*(dgz*dx + g*(-dx*dz/r3))
+                          + A2*(dgz*hx + g*(-dvy/h -hxh3*(v2*dz - rdotv*dvz)))
+                          + A3*(dgz*tx + g*((2*dz*dvx - dx*dvz)/t - txt3*(2*dz*vdott - rdotv*tz)));
+
+	const double dzdx = A1*(dgx*dz + g*(-dx*dz/r3))
+                          + A2*(dgx*hz + g*(dvy/h -hzh3*(v2*dx - rdotv*dvx)))
+                          + A3*(dgx*tz + g*((2*dx*dvz - dz*dvx)/t - tzt3*(2*dx*vdott - rdotv*tx)));
+	const double dydz = A1*(dgz*dy + g*(-dy*dz/r3))
+                          + A2*(dgz*hy + g*(dvx/h -hyh3*(v2*dz - rdotv*dvz)))
+                          + A3*(dgz*ty + g*((2*dz*dvy - dy*dvz)/t - tyt3*(2*dz*vdott - rdotv*tz)));
+	const double dzdy = A1*(dgy*dz + g*(-dy*dz/r3))
+                          + A2*(dgy*hz + g*(-dvx/h -hzh3*(v2*dy - rdotv*dvy)))
+                          + A3*(dgy*tz + g*((2*dy*dvz - dz*dvy)/t - tzt3*(2*dy*vdott - rdotv*ty)));
+
+	const double dxdvx = A1*(0)
+                           + A2*(-hxh3*(r2*dvx - dx*rdotv))
+                           + A3*((dy*dy + dz*dz)/t - txt3*r2*tx);
+ 	const double dydvy = A1*(0)
+                           + A2*(-hyh3*(r2*dvy - dy*rdotv))
+                           + A3*((dx*dx + dz*dz)/t - tyt3*r2*ty);
+	const double dzdvz = A1*(0)
+                           + A2*(-hzh3*(r2*dvz - dz*rdotv))
+                           + A3*((dx*dx + dy*dy)/t - tzt3*r2*tz);
+
+	const double dxdvy = A1*(0)
+                           + A2*(-dz/h - hxh3*(r2*dvy - dy*rdotv))
+                           + A3*(-dy*dx/t - tyt3*r2*tx);
+	const double dydvx = A1*(0)
+                           + A2*(dz/h - hyh3*(r2*dvx - dx*rdotv))
+                           + A3*(-dx*dy/t - txt3*r2*ty);
+	const double dxdvz = A1*(0)
+                           + A2*(dy/h - hxh3*(r2*dvz - dz*rdotv))
+                           + A3*(-dz*dx/t - tzt3*r2*tx);
+
+	const double dzdvx = A1*(0)
+                           + A2*(-dy/h - hzh3*(r2*dvx - dx*rdotv))
+                           + A3*(-dx*dz/t - txt3*r2*tz);
+	const double dydvz = A1*(0)
+                           + A2*(-x/h - hyh3*(r2*dvz - dz*rdotv))
+                           + A3*(-dz*dy/t - tzt3*r2*ty);
+	const double dzdvy = A1*(0)
+                           + A2*(x/h - hzh3*(r2*dvy - dy*rdotv))
+                           + A3*(-dy*dz/t - tyt3*r2*tz);
+
+	// Looping over variational particles
+        for(int v = N_real + 6*j; v < N_real + 6*(j+1); v++){
+
+	    // variational particle coords -- transformed to appropriate coord system.
+	    double ddx = particles[v].x + (xo - xr);
+	    double ddy = particles[v].y + (yo - yr);
+	    double ddz = particles[v].z + (zo - zr);
+	    double ddvx = particles[v].vx + (vxo - vxr);
+	    double ddvy = particles[v].vy + (vyo - vyr);
+	    double ddvz = particles[v].vz + (vzo - vzr);
+
+	    // Matrix multiplication
+	    const double dax =   ddx  * dxdx  + ddy  * dxdy  + ddz  * dxdz
+		+   ddvx * dxdvx + ddvy * dxdvy + ddvz * dxdvz;
+	    const double day =   ddx  * dydx  + ddy  * dydy  + ddz  * dydz
+		+   ddvx * dydvx + ddvy * dydvy + ddvz * dydvz;
+	    const double daz =   ddx  * dzdx  + ddy  * dzdy  + ddz  * dzdz
+		+   ddvx * dzdvx + ddvy * dzdvy + ddvz * dzdvz;
+
+	    // Accumulate acceleration terms
+	    particles[v].ax += dax;
+	    particles[v].ay += day;
+	    particles[v].az += daz;
+
+        }
+//  variational end
     }
 
     // Here is the Solar GR treatment
