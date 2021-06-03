@@ -17,7 +17,7 @@ typedef struct {
     int n_particles;
 } timestate;
 
-void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
+void read_inputs(char *filename, double* tepoch, double* tstart, double* tend, double* tstep, 
 		 int *geocentric,
 		 double *epsilon,
 		 int *n_particles,		 
@@ -51,14 +51,14 @@ int main(int argc, char* argv[]){
     int n_out;
 
     // Read ICs & integration params from file
-    double tepoch, tstart, tstep, trange;
+    double tepoch, tstart, tend, tstep;
     int geocentric;
     int n_particles;
     int n_var;
     double epsilon;
 
     if(argc >=2){
-	read_inputs(argv[1], &tepoch, &tstart, &tstep, &trange,
+	read_inputs(argv[1], &tepoch, &tstart, &tend, &tstep,
 		    &geocentric, &epsilon,
 		    &n_particles,		    
 		    &instate,
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
     sscanf(argv[2], "%lf", &scale);
 
 
-    int integration_function(double tstart, double tstep, double trange,
+    int integration_function(double tstart, double tend, double tstep, 
 			     int geocentric,
 			     double epsilon,
 			     int n_particles,
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]){
     if(tstart >= tepoch){
 	int status;
 
-	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
+	status = integration_function(tepoch, tend, tstep, 
 				      geocentric,
 				      epsilon,
 				      n_particles,
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]){
      
     }else{
 
-	int status = integration_function(tepoch, -tstep, tstart-tepoch,
+	int status = integration_function(tepoch, -tstep, tstart,
 					  geocentric,
 					  epsilon,
 					  n_particles,
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]){
 	    }
 	}
 
-	status = integration_function(tepoch, tstep, trange+tstart-tepoch,
+	status = integration_function(tepoch, tstep, tend,
 				      geocentric,
 				      epsilon,
 				      n_particles,
@@ -205,7 +205,7 @@ int main(int argc, char* argv[]){
 
 }
 
-void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, double* trange,
+void read_inputs(char *filename, double* tepoch, double* tstart, double* tend, double* tstep, 
 		 int *geocentric,
 		 double *epsilon,
 		 int *n_particles,		 
@@ -239,8 +239,8 @@ void read_inputs(char *filename, double* tepoch, double* tstart, double* tstep, 
           fscanf(fp, "%lf", tstart);
         } else if(!strcmp(label, "tstep")){
 	  fscanf(fp, "%lf", tstep);
-        } else if(!strcmp(label, "trange")){
-	  fscanf(fp, "%lf", trange);
+        } else if(!strcmp(label, "tend")){
+	  fscanf(fp, "%lf", tend);
         } else if(!strcmp(label, "epsilon")){
          fscanf(fp, "%lf", epsilon);
         } else if(!strcmp(label, "geocentric")){

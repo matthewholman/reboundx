@@ -108,9 +108,28 @@ static void ephem(const int i, const double jde, double* const GM,
     // The values below are G*mass.
     // Units are solar masses, au, days.
     // The units should probably be handled elsewhere.
+    // DE441
+    // These came from table 2 of the Park et al (2021) paper
+    // on DE440 and DE441, after converting to au^3 day^-2.
     const static double JPL_GM[11] =
 	{
-	    0.295912208285591100E-03, // 0  sun  
+            0.295912208284119600e-03, // 0 sun
+	    0.491250019480012900e-10, // 1 mercury
+	    0.724345233264411900e-09, // 2 venus
+	    0.888769244670660080e-09, // 3 earth
+	    0.109318946230041400e-10, // 4 moon
+	    0.954954882978019500e-10, // 5 mars
+	    0.282534582522579200e-06, // 6 jupiter
+	    0.845970599337629000e-07, // 7 saturn
+	    0.129202656496824060e-07, // 8 uranus
+	    0.152435734788510520e-07, // 9 neptune
+	    0.217509646489335850e-11, // 10 pluto	    
+	};
+    // DE431
+    /*
+    const static double JPL_GM[11] =
+	{
+	    0.295912208285591100E-03, // 0  sun  	    
 	    0.491248045036476000E-10, // 1  mercury
 	    0.724345233264412000E-09, // 2  venus
 	    0.888769244512563400E-09, // 3  earth
@@ -122,6 +141,7 @@ static void ephem(const int i, const double jde, double* const GM,
 	    0.152435734788511000E-07, // 9  neptune
 	    0.217844105197418000E-11, // 10 pluto
 	};
+    */
 
     if(i<0 || i>10){
       fprintf(stderr, "body out of range\n");
@@ -131,7 +151,8 @@ static void ephem(const int i, const double jde, double* const GM,
     if (initialized == 0){
 
       if ((pl = jpl_init()) == NULL) {
-	fprintf(stderr, "could not load DE430 file\n");
+	  //fprintf(stderr, "could not load DE430 file\n");
+	  fprintf(stderr, "could not load DE440 file\n");	  
 	exit(EXIT_FAILURE);
       }
 
@@ -174,7 +195,9 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
     // 48 Doris, 52 Europa, 451 Patientia, 87 Sylvia
 
     // The values below are G*mass.
-    // Units are solar masses, au, days.      
+    // Units are solar masses, au, days.
+    // DE431
+    /*
     const static double JPL_GM[16] =
 	{
 	    1.400476556172344e-13, // ceres
@@ -194,7 +217,29 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
 	    2.295559390637462e-15, // patientia
 	    2.199295173574073e-15, // sylvia
 	};
-    
+    */
+    // DE441
+    // GMs were supplied by Davide.
+    const static double JPL_GM[16] =    
+    {
+	    3.2191392075878588e-15, // camilla
+	    1.3964518123081070e-13, // ceres
+	    2.0917175955133682e-15, // cybele	
+	    8.6836253492286545e-15, // davida
+	    4.5107799051436795e-15, // eunomia
+	    2.4067012218937576e-15, // euphrosyne	    
+	    5.9824315264869841e-15, // europa
+	    1.2542530761640810e-14, // hygiea
+	    6.3110343420878887e-15, // interamnia
+	    2.5416014973471498e-15, // iris	    
+	    4.2823439677995011e-15, // juno
+	    3.0471146330043200e-14, // pallas
+	    3.5445002842488978e-15, // psyche
+	    4.8345606546105521e-15, // sylvia
+	    2.6529436610356353e-15, // thisbe
+	    3.8548000225257904e-14, // vesta
+
+    };
 
     if(i<0 || i>15){
       fprintf(stderr, "asteroid out of range\n");
@@ -203,8 +248,10 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
 
     if (initialized == 0){
       
-      if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
-	fprintf(stderr, "could not load sb431-n16 file\n");
+	//if ((spl = spk_init("sb431-n16s.bsp")) == NULL) {
+	if ((spl = spk_init("sb441-n16.bsp")) == NULL) {	  
+	    //fprintf(stderr, "could not load sb431-n16 file\n");
+	    fprintf(stderr, "could not load sb441-n16 file\n");	  
 	exit(EXIT_FAILURE);
       }
 
@@ -213,14 +260,12 @@ static void ast_ephem(const int i, const double jde, double* const GM, double* c
 
     }
 
-    fflush(stdout);
     *GM = JPL_GM[i];
     spk_calc(spl, i, jde, &pos);          
     *x = pos.u[0];
     *y = pos.u[1];
     *z = pos.u[2];
-    fflush(stdout);    
-    
+
 }
 
 int number_bodies(int* N_ephem, int* N_ast){
@@ -269,6 +314,9 @@ static void all_ephem(const int i, const double t, double* const GM,
 	*vx = NAN; *vy = NAN; *vz = NAN;
 	*ax = NAN; *ay = NAN; *az = NAN;		
     }
+    printf("%2d %.10lf %24.16le %24.16le %24.16le %24.16le\n", i, t, *GM, *x, *y, *z);
+    fflush(stdout);    
+    
     
 }
 
@@ -285,7 +333,10 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     int N_ephem, N_ast;
     int number_bodies(int* N_ephem, int* N_ast);
 
+    //const int N_tot = number_bodies(&N_ephem, &N_ast);
+
     const int N_tot = number_bodies(&N_ephem, &N_ast);
+    //N_tot = N_ephem;
 
     const double* c = rebx_get_param(sim->extras, force->ap, "c");
     if (c == NULL){
@@ -967,6 +1018,11 @@ typedef struct {
 // Gauss Radau spacings
 static const double h[9]    = { 0.0, 0.0562625605369221464656521910318, 0.180240691736892364987579942780, 0.352624717113169637373907769648, 0.547153626330555383001448554766, 0.734210177215410531523210605558, 0.885320946839095768090359771030, 0.977520613561287501891174488626, 1.0};
 
+static const double hg[9]   =   { 0.0, 0.0125360439090882, 0.1090842587659852, 0.2830581304412210, 0.5000000000000000, 0.7169418695587790, 0.8909157412340150, 0.9874639560909118, 1.0};
+
+
+
+
 void heartbeat(struct reb_simulation* r);
 
 // integration_function
@@ -978,14 +1034,7 @@ void heartbeat(struct reb_simulation* r);
 // instate: input states of test particles
 // ts: output times and states.
 
-/*
-int integration_function(double tstart, double tstep, double trange,
-			 int geocentric,
-			 int n_particles,
-			 double* instate,
-			 timestate *ts){
-*/
-int integration_function(double tstart, double tstep, double trange,
+int integration_function(double tstart, double tend, double tstep,
 			 int geocentric,
 			 double epsilon,
 			 int n_particles,
@@ -1014,10 +1063,13 @@ int integration_function(double tstart, double tstep, double trange,
 
     // These quantities are specific to IAS15.  Perhaps something more flexible could
     // be done so that other REBOUND integration routines could be explored.
+
+    // Don't hard code this.
     r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
     r->ri_ias15.epsilon = epsilon; // to avoid convergence issue with geocentric orbits    
 
     r->exact_finish_time = 1;
+    //r->exact_finish_time = 0;
     
     struct rebx_extras* rebx = rebx_attach(r);
 
@@ -1085,17 +1137,17 @@ int integration_function(double tstart, double tstep, double trange,
 
     //rebx_set_param_pointer(rebx, &ephem_forces->ap, "last_state", last_state);
 
-    double tmax = tstart+trange;
+    //double tmax = tstart+trange;
 
 
     /*
     const double dtsign = copysign(1.,r->dt);   // Used to determine integration direction
-    while((r->t)*dtsign<tmax*dtsign){ 
+    while((r->t)*dtsign<tend*dtsign){ 
 	reb_integrate(r, r->t + r->dt);
     }
     */
 
-    reb_integrate(r, tmax);
+    reb_integrate(r, tend);
 
     //ts->n_particles = n_particles;
 
@@ -1130,7 +1182,9 @@ void heartbeat(struct reb_simulation* r){
     //outtime = ts->t;
     //outstate = ts->state;
 
-    //tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");    
+    //tstate* last_state = rebx_get_param(r->extras, ephem_forces->ap, "last_state");
+    //printf("beat %lf\n", r->t);
+    //fflush(stdout);
 
     store_function(r);
 
@@ -1196,6 +1250,10 @@ void store_function(struct reb_simulation* r){
 
     int step = r->steps_done;
 
+    //printf("store %d %lf %lf\n", step, r->t, r->dt);
+    //fflush(stdout);
+
+
     outtime = ts->t;
     outstate = ts->state;
     n_alloc= ts->n_alloc;
@@ -1254,6 +1312,16 @@ void store_function(struct reb_simulation* r){
 
 	    // The h[n] values here define the substeps used in the
 	    // the integration, but they could be any values.
+	    // A natural alternative would be the Chebyshev nodes.
+	    // The degree would be altered, but the value would need
+	    // to be included in the output.
+	    // Another approach would be to output the ingredients for
+	    // the evaluations below.
+	    // x0, v0, a0, and 7 coefficients for each component
+	    // This has the advantage of providing a complete state
+	    // plus the accelerations at intervals.
+	    
+	    
 	    s[0] = r->dt_last_done * h[n];
 
 	    s[1] = s[0] * s[0] / 2.;
