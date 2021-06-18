@@ -25,7 +25,57 @@ class TimeState(Structure):
         ('n_particles', c_int)
     ]
 
+"""
+static void all_ephem(const int i, const double t, double* const GM,
+		      double* const x, double* const y, double* const z,
+		      double* const vx, double* const vy, double* const vz,
+		      double* const ax, double* const ay, double* const az
+"""
+
+def all_ephem(i, t):
+    """
+    Gets the position, velocity, and acceleration of a body from the 
+    ephemeris.
     
+    *Returns*
+        (x, y, z, vx, vy, vz, ax, ay, az) : tuple of floats
+    
+    """
+    
+    # Set up call to integration_function
+    _all_ephem = rebx_lib.all_ephem
+    _all_ephem.restype = None
+    _all_ephem.argtypes = (c_int, c_double, 
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double),
+                                      POINTER(c_double))
+
+    GM = c_double()    
+    x = c_double()
+    y = c_double()
+    z = c_double()
+    vx = c_double()
+    vy = c_double()
+    vz = c_double()
+    ax = c_double()
+    ay = c_double()
+    az = c_double()
+
+    return_value = _all_ephem(i, t, byref(GM),
+                              byref(x), byref(y), byref(z),
+                              byref(vx), byref(vy), byref(vz),
+                              byref(ax), byref(ay), byref(az))
+
+    return (GM.value, x.value, y.value, z.value, vx.value, vy.value, vz.value, ax.value, ay.value, az.value)
+
+
+
 def integration_function(tstart, tend, tstep,
                          geocentric,
                          n_particles,
@@ -106,7 +156,6 @@ def production_integration_function_wrapper(
         tstart,
         tend,
         epoch,
-        n_particles,
         instate_arr,
         non_grav_dict_list = None,
         tstep=20,
@@ -147,6 +196,8 @@ def production_integration_function_wrapper(
         }
     """
 
+    n_particles = len(instate_arr)
+    
     # call the integrator
     # For non-gravs:
     # pass in an identifier for the model
@@ -292,7 +343,7 @@ def production_integration_function_wrapper(
          # onto it.
 
          timesf = np.flip(outtime0, axis=0)[0:-1]
-         outtime = np.concatenate((timesf, outtime0), axis=0)
+         outtime = np.concatenate((timesf, outtime1), axis=0)
 
          statesf = np.flip(states0, axis=0)[0:-1]
          states = np.concatenate((statesf, states1), axis=0)         

@@ -96,6 +96,7 @@ int ebody[11] = {
 // Consolidated the routine, removing the if block.
 //
 static void ephem(const int i, const double jde, double* const GM,
+//void ephem(const int i, const double jde, double* const GM,		  
 	   double* const x, double* const y, double* const z,
 	   double* const vx, double* const vy, double* const vz,
 	   double* const ax, double* const ay, double* const az){
@@ -184,6 +185,7 @@ static void ephem(const int i, const double jde, double* const GM,
 }
 
 static void ast_ephem(const int i, const double jde, double* const GM, double* const x, double* const y, double* const z){
+    //void ast_ephem(const int i, const double jde, double* const GM, double* const x, double* const y, double* const z){    
 
     static int initialized = 0;
 
@@ -275,7 +277,8 @@ int number_bodies(int* N_ephem, int* N_ast){
     return(*N_ephem + *N_ast);
 }
 
-static void all_ephem(const int i, const double t, double* const GM,
+//static void all_ephem(const int i, const double t, double* const GM,
+void all_ephem(const int i, const double t, double* const GM,
 		      double* const x, double* const y, double* const z,
 		      double* const vx, double* const vy, double* const vz,
 		      double* const ax, double* const ay, double* const az
@@ -314,10 +317,8 @@ static void all_ephem(const int i, const double t, double* const GM,
 	*vx = NAN; *vy = NAN; *vz = NAN;
 	*ax = NAN; *ay = NAN; *az = NAN;		
     }
-    printf("%2d %.10lf %24.16le %24.16le %24.16le %24.16le\n", i, t, *GM, *x, *y, *z);
-    fflush(stdout);    
-    
-    
+    //printf("%2d %.10lf %24.16le %24.16le %24.16le %24.16le\n", i, t, *GM, *x, *y, *z);
+    //fflush(stdout);    
 }
 
 void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* const force, struct reb_particle* const particles, const int N){
@@ -367,13 +368,15 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 	// geocentric
 	all_ephem(3, t, &GM, &xo, &yo, &zo, &vxo, &vyo, &vzo, &axo, &ayo, &azo);
 
+	//printf("%lf %le %le %le geo\n", t, -axo, -ayo, -azo);
+
 	// This is the indirect term for geocentric equations
 	// of motion.
 	for (int j=0; j<N_real; j++){    
 
-	    particles[j].ax -= axo;
-	    particles[j].ay -= ayo;
-	    particles[j].az -= azo;
+	    //particles[j].ax -= axo;
+	    //particles[j].ay -= ayo;
+	    //particles[j].az -= azo;
 
 	}
 	
@@ -808,6 +811,11 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
     double A2 = 0.0;
     double A3 = 0.0;
 
+    // 2020 CD3
+    //double A1= 1.903810165823E-10;
+    //double A2 = 0.0;
+    //double A3 = 0.0;
+
     // Apophis
     //double A1 = 0.0;
     //double A2 = -5.592839897872E-14;
@@ -1073,13 +1081,30 @@ void rebx_ephemeris_forces(struct reb_simulation* const sim, struct rebx_force* 
 		+   ddvx * dzdvx + ddvy * dzdvy + ddvz * dzdvz;
 
 	    // Accumulate acceleration terms
-	    particles[v].ax += dax;
+ 	    particles[v].ax += dax;
 	    particles[v].ay += day;
 	    particles[v].az += daz;
 
         }
     }
 
+    if(*geo == 1){
+	// geocentric
+	all_ephem(3, t, &GM, &xo, &yo, &zo, &vxo, &vyo, &vzo, &axo, &ayo, &azo);
+
+	//printf("%lf %le %le %le geo\n", t, axo, ayo, azo);
+
+	// This is the indirect term for geocentric equations
+	// of motion.
+	for (int j=0; j<N_real; j++){    
+
+	    //printf("%lf %le %le %le\n", t, particles[j].ax, particles[j].ay, particles[j].az);	    
+	    particles[j].ax -= axo;
+	    particles[j].ay -= ayo;
+	    particles[j].az -= azo;
+
+	}
+    }
 }
 
 /**
@@ -1170,7 +1195,8 @@ int integration_function(double tstart, double tend, double tstep,
     // be done so that other REBOUND integration routines could be explored.
 
     // Don't hard code this.
-    r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
+    //r->ri_ias15.min_dt = 1e-2;  // to avoid very small time steps
+    r->ri_ias15.min_dt = 1e-4;  // to avoid very small time steps    
     r->ri_ias15.epsilon = epsilon; // to avoid convergence issue with geocentric orbits    
 
     r->exact_finish_time = 1;
@@ -1415,7 +1441,7 @@ void store_function(struct reb_simulation* r){
 	// Loop over intervals using Gauss-Radau spacings      
 	for(int n=1;n<9;n++) {
 
-	    // The h[n] values here define the substeps used in the
+	    // The hg[n] values here define the substeps used in the
 	    // the integration, but they could be any values.
 	    // A natural alternative would be the Chebyshev nodes.
 	    // The degree would be altered, but the value would need
@@ -1427,18 +1453,18 @@ void store_function(struct reb_simulation* r){
 	    // plus the accelerations at intervals.
 	    
 	    
-	    s[0] = r->dt_last_done * h[n];
+	    s[0] = r->dt_last_done * hg[n];
 
 	    s[1] = s[0] * s[0] / 2.;
-	    s[2] = s[1] * h[n] / 3.;
-	    s[3] = s[2] * h[n] / 2.;
-	    s[4] = 3. * s[3] * h[n] / 5.;
-	    s[5] = 2. * s[4] * h[n] / 3.;
-	    s[6] = 5. * s[5] * h[n] / 7.;
-	    s[7] = 3. * s[6] * h[n] / 4.;
-	    s[8] = 7. * s[7] * h[n] / 9.;
+	    s[2] = s[1] * hg[n] / 3.;
+	    s[3] = s[2] * hg[n] / 2.;
+	    s[4] = 3. * s[3] * hg[n] / 5.;
+	    s[5] = 2. * s[4] * hg[n] / 3.;
+	    s[6] = 5. * s[5] * hg[n] / 7.;
+	    s[7] = 3. * s[6] * hg[n] / 4.;
+	    s[8] = 7. * s[7] * hg[n] / 9.;
 
-	    double t = r->t + r->dt_last_done * (-1.0 + h[n]);
+	    double t = r->t + r->dt_last_done * (-1.0 + hg[n]);
 
 	    outtime[time_offset++] = t;	
 
@@ -1461,14 +1487,14 @@ void store_function(struct reb_simulation* r){
 		outstate[offset+2] = xz0;
 	    }
 
-	    s[0] = r->dt_last_done * h[n];
-	    s[1] =      s[0] * h[n] / 2.;
-	    s[2] = 2. * s[1] * h[n] / 3.;
-	    s[3] = 3. * s[2] * h[n] / 4.;
-	    s[4] = 4. * s[3] * h[n] / 5.;
-	    s[5] = 5. * s[4] * h[n] / 6.;
-	    s[6] = 6. * s[5] * h[n] / 7.;
-	    s[7] = 7. * s[6] * h[n] / 8.;
+	    s[0] = r->dt_last_done * hg[n];
+	    s[1] =      s[0] * hg[n] / 2.;
+	    s[2] = 2. * s[1] * hg[n] / 3.;
+	    s[3] = 3. * s[2] * hg[n] / 4.;
+	    s[4] = 4. * s[3] * hg[n] / 5.;
+	    s[5] = 5. * s[4] * hg[n] / 6.;
+	    s[6] = 6. * s[5] * hg[n] / 7.;
+	    s[7] = 7. * s[6] * hg[n] / 8.;
 
 	    // Predict velocities at interval n using b values
 	    // for all the particles
