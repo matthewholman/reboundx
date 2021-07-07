@@ -27,7 +27,7 @@
  * 
  * ======================= ===============================================
  * Authors                 D. Tamayo
- * Implementation Paper    *In progress*
+ * Implementation Paper    `Tamayo, Rein, Shi and Hernandez, 2019 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.491.2885T/abstract>`_.
  * Based on                None
  * C Example               :ref:`c_example_track_min_distance`
  * Python Example          `TrackMinDistance.ipynb <https://github.com/dtamayo/reboundx/blob/master/ipython_examples/TrackMinDistance.ipynb>`_.
@@ -44,13 +44,13 @@
  * 
  * Only particles with their ``min_distance`` parameter set initially will track their minimum distance. The effect will
  * update this parameter when the particle gets closer than the value of ``min_distance``, so the user has to set it
- * initially.  By default distance is measured from sim->particles[0], but you can specify a different particle by setting
+ * initially.  By default, distance is measured from sim->particles[0], but you can specify a different particle by setting
  * the ``min_distance_from`` parameter to the hash of the target particle.
  * 
  * ================================ =========== =======================================================
  * Name (C type)                    Required    Description
  * ================================ =========== =======================================================
- * min_distance (double)            Yes         Particle's miminimum distance.
+ * min_distance (double)            Yes         Particle's mininimum distance.
  * min_distance_from (uint32)       No          Hash for particle from which to measure distance
  * min_distance_orbit (reb_orbit)   No          Parameter to store orbital elements at moment corresponding to min_distance (heliocentric)
  * ================================ =========== =======================================================
